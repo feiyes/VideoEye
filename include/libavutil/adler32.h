@@ -18,14 +18,30 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/**
+ * @file
+ * @ingroup lavu_adler32
+ * Public header for Adler-32 hash function implementation.
+ */
+
 #ifndef AVUTIL_ADLER32_H
 #define AVUTIL_ADLER32_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "attributes.h"
 
 /**
- * @ingroup lavu_crypto
+ * @defgroup lavu_adler32 Adler-32
+ * @ingroup lavu_hash
+ * Adler-32 hash function implementation.
+ *
+ * @{
+ */
+
+typedef uint32_t AVAdler;
+
+/**
  * Calculate the Adler32 checksum of a buffer.
  *
  * Passing the return value to a subsequent av_adler32_update() call
@@ -37,7 +53,11 @@
  * @param len   size of input buffer
  * @return      updated checksum
  */
-unsigned long av_adler32_update(unsigned long adler, const uint8_t *buf,
-                                unsigned int len) av_pure;
+AVAdler av_adler32_update(AVAdler adler, const uint8_t *buf,
+                          size_t len) av_pure;
+
+/**
+ * @}
+ */
 
 #endif /* AVUTIL_ADLER32_H */

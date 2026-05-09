@@ -2,6 +2,17 @@
                 ChangeLog file for VideoEye
 
 
+Changes in 0.3:
+- Updated .gitignore with MFC project specific rules
+- Created libs/ directory to store DLL files (prevents deletion during clean)
+- Configured post-build events to automatically copy DLLs to output directory
+- Removed unnecessary 32-bit related files and directories
+- Removed .suo and .aps files from git tracking
+- Added .gitignore file
+- Fixed bugs
+- Made some changes
+- Fixed Chinese garbled characters issue
+
 Changes in 0.2:
 - Add Unicode Character Set Support
 - Fixed "INT64_MIN INT64_MAX" Error

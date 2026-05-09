@@ -22,15 +22,37 @@
 #ifndef AVFILTER_AVFILTER_H
 #define AVFILTER_AVFILTER_H
 
+/**
+ * @file
+ * @ingroup lavfi
+ * Main libavfilter public API header
+ */
+
+/**
+ * @defgroup lavfi libavfilter
+ * Graph-based frame editing library.
+ *
+ * @{
+ */
+
 #include <stddef.h>
 
+#include "libavutil/attributes.h"
 #include "libavutil/avutil.h"
+#include "libavutil/buffer.h"
+#include "libavutil/dict.h"
+#include "libavutil/frame.h"
 #include "libavutil/log.h"
-#include "libavutil/samplefmt.h"
 #include "libavutil/pixfmt.h"
 #include "libavutil/rational.h"
 
+#include "libavfilter/version_major.h"
+#ifndef HAVE_AV_CONFIG_H
+/* When included as part of the ffmpeg build, only include the major version
+ * to avoid unnecessary rebuilds. When included externally, keep including
+ * the full version information. */
 #include "libavfilter/version.h"
+#endif
 
 /**
  * Return the LIBAVFILTER_VERSION_INT constant.
@@ -47,357 +69,21 @@ const char *avfilter_configuration(void);
  */
 const char *avfilter_license(void);
 
-/**
- * Get the class for the AVFilterContext struct.
- */
-const AVClass *avfilter_get_class(void);
-
-typedef struct AVFilterContext AVFilterContext;
 typedef struct AVFilterLink    AVFilterLink;
 typedef struct AVFilterPad     AVFilterPad;
 typedef struct AVFilterFormats AVFilterFormats;
-
-/**
- * A reference-counted buffer data type used by the filter system. Filters
- * should not store pointers to this structure directly, but instead use the
- * AVFilterBufferRef structure below.
- */
-typedef struct AVFilterBuffer {
-    uint8_t *data[8];           ///< buffer data for each plane/channel
-
-    /**
-     * pointers to the data planes/channels.
-     *
-     * For video, this should simply point to data[].
-     *
-     * For planar audio, each channel has a separate data pointer, and
-     * linesize[0] contains the size of each channel buffer.
-     * For packed audio, there is just one data pointer, and linesize[0]
-     * contains the total size of the buffer for all channels.
-     *
-     * Note: Both data and extended_data will always be set, but for planar
-     * audio with more channels that can fit in data, extended_data must be used
-     * in order to access all channels.
-     */
-    uint8_t **extended_data;
-    int linesize[8];            ///< number of bytes per line
-
-    /** private data to be used by a custom free function */
-    void *priv;
-    /**
-     * A pointer to the function to deallocate this buffer if the default
-     * function is not sufficient. This could, for example, add the memory
-     * back into a memory pool to be reused later without the overhead of
-     * reallocating it from scratch.
-     */
-    void (*free)(struct AVFilterBuffer *buf);
-
-    int format;                 ///< media format
-    int w, h;                   ///< width and height of the allocated buffer
-    unsigned refcount;          ///< number of references to this buffer
-} AVFilterBuffer;
-
-#define AV_PERM_READ     0x01   ///< can read from the buffer
-#define AV_PERM_WRITE    0x02   ///< can write to the buffer
-#define AV_PERM_PRESERVE 0x04   ///< nobody else can overwrite the buffer
-#define AV_PERM_REUSE    0x08   ///< can output the buffer multiple times, with the same contents each time
-#define AV_PERM_REUSE2   0x10   ///< can output the buffer multiple times, modified each time
-#define AV_PERM_NEG_LINESIZES 0x20  ///< the buffer requested can have negative linesizes
-#define AV_PERM_ALIGN    0x40   ///< the buffer must be aligned
-
-#define AVFILTER_ALIGN 16 //not part of ABI
-
-/**
- * Audio specific properties in a reference to an AVFilterBuffer. Since
- * AVFilterBufferRef is common to different media formats, audio specific
- * per reference properties must be separated out.
- */
-typedef struct AVFilterBufferRefAudioProps {
-    uint64_t channel_layout;    ///< channel layout of audio buffer
-    int nb_samples;             ///< number of audio samples per channel
-    int sample_rate;            ///< audio buffer sample rate
-} AVFilterBufferRefAudioProps;
-
-/**
- * Video specific properties in a reference to an AVFilterBuffer. Since
- * AVFilterBufferRef is common to different media formats, video specific
- * per reference properties must be separated out.
- */
-typedef struct AVFilterBufferRefVideoProps {
-    int w;                      ///< image width
-    int h;                      ///< image height
-    AVRational sample_aspect_ratio; ///< sample aspect ratio
-    int interlaced;             ///< is frame interlaced
-    int top_field_first;        ///< field order
-    enum AVPictureType pict_type; ///< picture type of the frame
-    int key_frame;              ///< 1 -> keyframe, 0-> not
-    int qp_table_linesize;                ///< qp_table stride
-    int qp_table_size;            ///< qp_table size
-    int8_t *qp_table;             ///< array of Quantization Parameters
-} AVFilterBufferRefVideoProps;
-
-/**
- * A reference to an AVFilterBuffer. Since filters can manipulate the origin of
- * a buffer to, for example, crop image without any memcpy, the buffer origin
- * and dimensions are per-reference properties. Linesize is also useful for
- * image flipping, frame to field filters, etc, and so is also per-reference.
- *
- * TODO: add anything necessary for frame reordering
- */
-typedef struct AVFilterBufferRef {
-    AVFilterBuffer *buf;        ///< the buffer that this is a reference to
-    uint8_t *data[8];           ///< picture/audio data for each plane
-    /**
-     * pointers to the data planes/channels.
-     *
-     * For video, this should simply point to data[].
-     *
-     * For planar audio, each channel has a separate data pointer, and
-     * linesize[0] contains the size of each channel buffer.
-     * For packed audio, there is just one data pointer, and linesize[0]
-     * contains the total size of the buffer for all channels.
-     *
-     * Note: Both data and extended_data will always be set, but for planar
-     * audio with more channels that can fit in data, extended_data must be used
-     * in order to access all channels.
-     */
-    uint8_t **extended_data;
-    int linesize[8];            ///< number of bytes per line
-
-    AVFilterBufferRefVideoProps *video; ///< video buffer specific properties
-    AVFilterBufferRefAudioProps *audio; ///< audio buffer specific properties
-
-    /**
-     * presentation timestamp. The time unit may change during
-     * filtering, as it is specified in the link and the filter code
-     * may need to rescale the PTS accordingly.
-     */
-    int64_t pts;
-    int64_t pos;                ///< byte position in stream, -1 if unknown
-
-    int format;                 ///< media format
-
-    int perms;                  ///< permissions, see the AV_PERM_* flags
-
-    enum AVMediaType type;      ///< media type of buffer data
-} AVFilterBufferRef;
-
-/**
- * Copy properties of src to dst, without copying the actual data
- */
-void avfilter_copy_buffer_ref_props(AVFilterBufferRef *dst, AVFilterBufferRef *src);
-
-/**
- * Add a new reference to a buffer.
- *
- * @param ref   an existing reference to the buffer
- * @param pmask a bitmask containing the allowable permissions in the new
- *              reference
- * @return      a new reference to the buffer with the same properties as the
- *              old, excluding any permissions denied by pmask
- */
-AVFilterBufferRef *avfilter_ref_buffer(AVFilterBufferRef *ref, int pmask);
-
-/**
- * Remove a reference to a buffer. If this is the last reference to the
- * buffer, the buffer itself is also automatically freed.
- *
- * @param ref reference to the buffer, may be NULL
- *
- * @note it is recommended to use avfilter_unref_bufferp() instead of this
- * function
- */
-void avfilter_unref_buffer(AVFilterBufferRef *ref);
-
-/**
- * Remove a reference to a buffer and set the pointer to NULL.
- * If this is the last reference to the buffer, the buffer itself
- * is also automatically freed.
- *
- * @param ref pointer to the buffer reference
- */
-void avfilter_unref_bufferp(AVFilterBufferRef **ref);
-
-#if FF_API_AVFILTERPAD_PUBLIC
-/**
- * A filter pad used for either input or output.
- *
- * See doc/filter_design.txt for details on how to implement the methods.
- *
- * @warning this struct might be removed from public API.
- * users should call avfilter_pad_get_name() and avfilter_pad_get_type()
- * to access the name and type fields; there should be no need to access
- * any other fields from outside of libavfilter.
- */
-struct AVFilterPad {
-    /**
-     * Pad name. The name is unique among inputs and among outputs, but an
-     * input may have the same name as an output. This may be NULL if this
-     * pad has no need to ever be referenced by name.
-     */
-    const char *name;
-
-    /**
-     * AVFilterPad type.
-     */
-    enum AVMediaType type;
-
-    /**
-     * Input pads:
-     * Minimum required permissions on incoming buffers. Any buffer with
-     * insufficient permissions will be automatically copied by the filter
-     * system to a new buffer which provides the needed access permissions.
-     *
-     * Output pads:
-     * Guaranteed permissions on outgoing buffers. Any buffer pushed on the
-     * link must have at least these permissions; this fact is checked by
-     * asserts. It can be used to optimize buffer allocation.
-     */
-    int min_perms;
-
-    /**
-     * Input pads:
-     * Permissions which are not accepted on incoming buffers. Any buffer
-     * which has any of these permissions set will be automatically copied
-     * by the filter system to a new buffer which does not have those
-     * permissions. This can be used to easily disallow buffers with
-     * AV_PERM_REUSE.
-     *
-     * Output pads:
-     * Permissions which are automatically removed on outgoing buffers. It
-     * can be used to optimize buffer allocation.
-     */
-    int rej_perms;
-
-    /**
-     * Callback called before passing the first slice of a new frame. If
-     * NULL, the filter layer will default to storing a reference to the
-     * picture inside the link structure.
-     *
-     * The reference given as argument is also available in link->cur_buf.
-     * It can be stored elsewhere or given away, but then clearing
-     * link->cur_buf is advised, as it is automatically unreferenced.
-     * The reference must not be unreferenced before end_frame(), as it may
-     * still be in use by the automatic copy mechanism.
-     *
-     * Input video pads only.
-     *
-     * @return >= 0 on success, a negative AVERROR on error. picref will be
-     * unreferenced by the caller in case of error.
-     */
-    int (*start_frame)(AVFilterLink *link, AVFilterBufferRef *picref);
-
-    /**
-     * Callback function to get a video buffer. If NULL, the filter system will
-     * use avfilter_default_get_video_buffer().
-     *
-     * Input video pads only.
-     */
-    AVFilterBufferRef *(*get_video_buffer)(AVFilterLink *link, int perms, int w, int h);
-
-    /**
-     * Callback function to get an audio buffer. If NULL, the filter system will
-     * use avfilter_default_get_audio_buffer().
-     *
-     * Input audio pads only.
-     */
-    AVFilterBufferRef *(*get_audio_buffer)(AVFilterLink *link, int perms,
-                                           int nb_samples);
-
-    /**
-     * Callback called after the slices of a frame are completely sent. If
-     * NULL, the filter layer will default to releasing the reference stored
-     * in the link structure during start_frame().
-     *
-     * Input video pads only.
-     *
-     * @return >= 0 on success, a negative AVERROR on error.
-     */
-    int (*end_frame)(AVFilterLink *link);
-
-    /**
-     * Slice drawing callback. This is where a filter receives video data
-     * and should do its processing.
-     *
-     * Input video pads only.
-     *
-     * @return >= 0 on success, a negative AVERROR on error.
-     */
-    int (*draw_slice)(AVFilterLink *link, int y, int height, int slice_dir);
-
-    /**
-     * Samples filtering callback. This is where a filter receives audio data
-     * and should do its processing.
-     *
-     * Input audio pads only.
-     *
-     * @return >= 0 on success, a negative AVERROR on error. This function
-     * must ensure that samplesref is properly unreferenced on error if it
-     * hasn't been passed on to another filter.
-     */
-    int (*filter_samples)(AVFilterLink *link, AVFilterBufferRef *samplesref);
-
-    /**
-     * Frame poll callback. This returns the number of immediately available
-     * samples. It should return a positive value if the next request_frame()
-     * is guaranteed to return one frame (with no delay).
-     *
-     * Defaults to just calling the source poll_frame() method.
-     *
-     * Output pads only.
-     */
-    int (*poll_frame)(AVFilterLink *link);
-
-    /**
-     * Frame request callback. A call to this should result in at least one
-     * frame being output over the given link. This should return zero on
-     * success, and another value on error.
-     * See ff_request_frame() for the error codes with a specific
-     * meaning.
-     *
-     * Output pads only.
-     */
-    int (*request_frame)(AVFilterLink *link);
-
-    /**
-     * Link configuration callback.
-     *
-     * For output pads, this should set the following link properties:
-     * video: width, height, sample_aspect_ratio, time_base
-     * audio: sample_rate.
-     *
-     * This should NOT set properties such as format, channel_layout, etc which
-     * are negotiated between filters by the filter system using the
-     * query_formats() callback before this function is called.
-     *
-     * For input pads, this should check the properties of the link, and update
-     * the filter's internal state as necessary.
-     *
-     * For both input and output pads, this should return zero on success,
-     * and another value on error.
-     */
-    int (*config_props)(AVFilterLink *link);
-
-    /**
-     * The filter expects a fifo to be inserted on its input link,
-     * typically because it has a delay.
-     *
-     * input pads only.
-     */
-    int needs_fifo;
-};
-#endif
+typedef struct AVFilterChannelLayouts AVFilterChannelLayouts;
 
 /**
  * Get the name of an AVFilterPad.
  *
  * @param pads an array of AVFilterPads
- * @param pad_idx index of the pad in the array it; is the caller's
+ * @param pad_idx index of the pad in the array; it is the caller's
  *                responsibility to ensure the index is valid
  *
  * @return name of the pad_idx'th pad in pads
  */
-const char *avfilter_pad_get_name(AVFilterPad *pads, int pad_idx);
+const char *avfilter_pad_get_name(const AVFilterPad *pads, int pad_idx);
 
 /**
  * Get the type of an AVFilterPad.
@@ -408,107 +94,291 @@ const char *avfilter_pad_get_name(AVFilterPad *pads, int pad_idx);
  *
  * @return type of the pad_idx'th pad in pads
  */
-enum AVMediaType avfilter_pad_get_type(AVFilterPad *pads, int pad_idx);
+enum AVMediaType avfilter_pad_get_type(const AVFilterPad *pads, int pad_idx);
+
+/**
+ * Get the hardware frames context of a filter link.
+ *
+ * @param link an AVFilterLink
+ *
+ * @return a ref-counted copy of the link's hw_frames_ctx field if there is
+ *         a hardware frames context associated with the link or NULL otherwise.
+ *         The returned AVBufferRef needs to be released with av_buffer_unref()
+ *         when it is no longer used.
+ */
+AVBufferRef* avfilter_link_get_hw_frames_ctx(AVFilterLink *link);
+
+/**
+ * Lists of formats / etc. supported by an end of a link.
+ *
+ * This structure is directly part of AVFilterLink, in two copies:
+ * one for the source filter, one for the destination filter.
+
+ * These lists are used for negotiating the format to actually be used,
+ * which will be loaded into the format and channel_layout members of
+ * AVFilterLink, when chosen.
+ */
+typedef struct AVFilterFormatsConfig {
+
+    /**
+     * List of supported formats (pixel or sample).
+     */
+    AVFilterFormats *formats;
+
+    /**
+     * Lists of supported sample rates, only for audio.
+     */
+    AVFilterFormats  *samplerates;
+
+    /**
+     * Lists of supported channel layouts, only for audio.
+     */
+    AVFilterChannelLayouts  *channel_layouts;
+
+    /**
+     * Lists of supported YUV color metadata, only for YUV video.
+     */
+    AVFilterFormats *color_spaces;  ///< AVColorSpace
+    AVFilterFormats *color_ranges;  ///< AVColorRange
+
+    /**
+     * List of supported alpha modes, only for video with an alpha channel.
+     */
+    AVFilterFormats *alpha_modes;  ///< AVAlphaMode
+
+} AVFilterFormatsConfig;
+
+/**
+ * The number of the filter inputs is not determined just by AVFilter.inputs.
+ * The filter might add additional inputs during initialization depending on the
+ * options supplied to it.
+ */
+#define AVFILTER_FLAG_DYNAMIC_INPUTS        (1 << 0)
+/**
+ * The number of the filter outputs is not determined just by AVFilter.outputs.
+ * The filter might add additional outputs during initialization depending on
+ * the options supplied to it.
+ */
+#define AVFILTER_FLAG_DYNAMIC_OUTPUTS       (1 << 1)
+/**
+ * The filter supports multithreading by splitting frames into multiple parts
+ * and processing them concurrently.
+ */
+#define AVFILTER_FLAG_SLICE_THREADS         (1 << 2)
+/**
+ * The filter is a "metadata" filter - it does not modify the frame data in any
+ * way. It may only affect the metadata (i.e. those fields copied by
+ * av_frame_copy_props()).
+ *
+ * More precisely, this means:
+ * - video: the data of any frame output by the filter must be exactly equal to
+ *   some frame that is received on one of its inputs. Furthermore, all frames
+ *   produced on a given output must correspond to frames received on the same
+ *   input and their order must be unchanged. Note that the filter may still
+ *   drop or duplicate the frames.
+ * - audio: the data produced by the filter on any of its outputs (viewed e.g.
+ *   as an array of interleaved samples) must be exactly equal to the data
+ *   received by the filter on one of its inputs.
+ */
+#define AVFILTER_FLAG_METADATA_ONLY         (1 << 3)
+
+/**
+ * The filter can create hardware frames using AVFilterContext.hw_device_ctx.
+ */
+#define AVFILTER_FLAG_HWDEVICE              (1 << 4)
+/**
+ * Some filters support a generic "enable" expression option that can be used
+ * to enable or disable a filter in the timeline. Filters supporting this
+ * option have this flag set. When the enable expression is false, the default
+ * no-op filter_frame() function is called in place of the filter_frame()
+ * callback defined on each input pad, thus the frame is passed unchanged to
+ * the next filters.
+ */
+#define AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC  (1 << 16)
+/**
+ * Same as AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC, except that the filter will
+ * have its filter_frame() callback(s) called as usual even when the enable
+ * expression is false. The filter will disable filtering within the
+ * filter_frame() callback(s) itself, for example executing code depending on
+ * the AVFilterContext->is_disabled value.
+ */
+#define AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL (1 << 17)
+/**
+ * Handy mask to test whether the filter supports or no the timeline feature
+ * (internally or generically).
+ */
+#define AVFILTER_FLAG_SUPPORT_TIMELINE (AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC | AVFILTER_FLAG_SUPPORT_TIMELINE_INTERNAL)
 
 /**
  * Filter definition. This defines the pads a filter contains, and all the
  * callback functions used to interact with the filter.
  */
 typedef struct AVFilter {
-    const char *name;         ///< filter name
+    /**
+     * Filter name. Must be non-NULL and unique among filters.
+     */
+    const char *name;
 
     /**
-     * A description for the filter. You should use the
-     * NULL_IF_CONFIG_SMALL() macro to define it.
+     * A description of the filter. May be NULL.
+     *
+     * You should use the NULL_IF_CONFIG_SMALL() macro to define it.
      */
     const char *description;
 
-    const AVFilterPad *inputs;  ///< NULL terminated list of inputs. NULL if none
-    const AVFilterPad *outputs; ///< NULL terminated list of outputs. NULL if none
-
-    /*****************************************************************
-     * All fields below this line are not part of the public API. They
-     * may not be used outside of libavfilter and can be changed and
-     * removed at will.
-     * New public fields should be added right above.
-     *****************************************************************
-     */
-
     /**
-     * Filter initialization function. Args contains the user-supplied
-     * parameters. FIXME: maybe an AVOption-based system would be better?
-     */
-    int (*init)(AVFilterContext *ctx, const char *args);
-
-    /**
-     * Filter uninitialization function. Should deallocate any memory held
-     * by the filter, release any buffer references, etc. This does not need
-     * to deallocate the AVFilterContext->priv memory itself.
-     */
-    void (*uninit)(AVFilterContext *ctx);
-
-    /**
-     * Queries formats/layouts supported by the filter and its pads, and sets
-     * the in_formats/in_chlayouts for links connected to its output pads,
-     * and out_formats/out_chlayouts for links connected to its input pads.
+     * List of static inputs.
      *
-     * @return zero on success, a negative value corresponding to an
-     * AVERROR code otherwise
+     * NULL if there are no (static) inputs. Instances of filters with
+     * AVFILTER_FLAG_DYNAMIC_INPUTS set may have more inputs than present in
+     * this list.
      */
-    int (*query_formats)(AVFilterContext *);
-
-    int priv_size;      ///< size of private data to allocate for the filter
+    const AVFilterPad *inputs;
 
     /**
-     * Make the filter instance process a command.
+     * List of static outputs.
      *
-     * @param cmd    the command to process, for handling simplicity all commands must be alphanumeric only
-     * @param arg    the argument for the command
-     * @param res    a buffer with size res_size where the filter(s) can return a response. This must not change when the command is not supported.
-     * @param flags  if AVFILTER_CMD_FLAG_FAST is set and the command would be
-     *               time consuming then a filter should treat it like an unsupported command
-     *
-     * @returns >=0 on success otherwise an error code.
-     *          AVERROR(ENOSYS) on unsupported commands
+     * NULL if there are no (static) outputs. Instances of filters with
+     * AVFILTER_FLAG_DYNAMIC_OUTPUTS set may have more outputs than present in
+     * this list.
      */
-    int (*process_command)(AVFilterContext *, const char *cmd, const char *arg, char *res, int res_len, int flags);
+    const AVFilterPad *outputs;
 
     /**
-     * Filter initialization function, alternative to the init()
-     * callback. Args contains the user-supplied parameters, opaque is
-     * used for providing binary data.
+     * A class for the private data, used to declare filter private AVOptions.
+     * This field is NULL for filters that do not declare any options.
+     *
+     * If this field is non-NULL, the first member of the filter private data
+     * must be a pointer to AVClass, which will be set by libavfilter generic
+     * code to this class.
      */
-    int (*init_opaque)(AVFilterContext *ctx, const char *args, void *opaque);
+    const AVClass *priv_class;
 
-    const AVClass *priv_class;      ///< private class, containing filter specific options
+    /**
+     * A combination of AVFILTER_FLAG_*
+     */
+    int flags;
 } AVFilter;
 
-/** An instance of a filter */
-struct AVFilterContext {
-    const AVClass *av_class;        ///< needed for av_log()
+/**
+ * Get the number of elements in an AVFilter's inputs or outputs array.
+ */
+unsigned avfilter_filter_pad_count(const AVFilter *filter, int is_output);
 
-    AVFilter *filter;               ///< the AVFilter of which this is an instance
+/**
+ * Process multiple parts of the frame concurrently.
+ */
+#define AVFILTER_THREAD_SLICE (1 << 0)
+
+/** An instance of a filter */
+typedef struct AVFilterContext {
+    const AVClass *av_class;        ///< needed for av_log() and filters common options
+
+    const AVFilter *filter;         ///< the AVFilter of which this is an instance
 
     char *name;                     ///< name of this filter instance
 
     AVFilterPad   *input_pads;      ///< array of input pads
     AVFilterLink **inputs;          ///< array of pointers to input links
-#if FF_API_FOO_COUNT
-    unsigned input_count;           ///< @deprecated use nb_inputs
-#endif
     unsigned    nb_inputs;          ///< number of input pads
 
     AVFilterPad   *output_pads;     ///< array of output pads
     AVFilterLink **outputs;         ///< array of pointers to output links
-#if FF_API_FOO_COUNT
-    unsigned output_count;          ///< @deprecated use nb_outputs
-#endif
     unsigned    nb_outputs;         ///< number of output pads
 
     void *priv;                     ///< private data for use by the filter
 
+    struct AVFilterGraph *graph;    ///< filtergraph this filter belongs to
+
+    /**
+     * Type of multithreading being allowed/used. A combination of
+     * AVFILTER_THREAD_* flags.
+     *
+     * May be set by the caller before initializing the filter to forbid some
+     * or all kinds of multithreading for this filter. The default is allowing
+     * everything.
+     *
+     * When the filter is initialized, this field is combined using bit AND with
+     * AVFilterGraph.thread_type to get the final mask used for determining
+     * allowed threading types. I.e. a threading type needs to be set in both
+     * to be allowed.
+     *
+     * After the filter is initialized, libavfilter sets this field to the
+     * threading type that is actually used (0 for no multithreading).
+     */
+    int thread_type;
+
+    /**
+     * Max number of threads allowed in this filter instance.
+     * If <= 0, its value is ignored.
+     * Overrides global number of threads set per filter graph.
+     */
+    int nb_threads;
+
+#if FF_API_CONTEXT_PUBLIC
+    /**
+     * @deprecated unused
+     */
+    attribute_deprecated
     struct AVFilterCommand *command_queue;
-};
+#endif
+
+    char *enable_str;               ///< enable expression string
+#if FF_API_CONTEXT_PUBLIC
+    /**
+     * @deprecated unused
+     */
+    attribute_deprecated
+    void *enable;
+    /**
+     * @deprecated unused
+     */
+    double *var_values;
+#endif
+    /**
+     * MUST NOT be accessed from outside avfilter.
+     *
+     * the enabled state from the last expression evaluation
+     */
+    int is_disabled;
+
+    /**
+     * For filters which will create hardware frames, sets the device the
+     * filter should create them in.  All other filters will ignore this field:
+     * in particular, a filter which consumes or processes hardware frames will
+     * instead use the hw_frames_ctx field in AVFilterLink to carry the
+     * hardware context information.
+     *
+     * May be set by the caller on filters flagged with AVFILTER_FLAG_HWDEVICE
+     * before initializing the filter with avfilter_init_str() or
+     * avfilter_init_dict().
+     */
+    AVBufferRef *hw_device_ctx;
+
+#if FF_API_CONTEXT_PUBLIC
+    /**
+     * @deprecated this field should never have been accessed by callers
+     */
+    attribute_deprecated
+    unsigned ready;
+#endif
+
+    /**
+     * Sets the number of extra hardware frames which the filter will
+     * allocate on its output links for use in following filters or by
+     * the caller.
+     *
+     * Some hardware filters require all frames that they will use for
+     * output to be defined in advance before filtering starts.  For such
+     * filters, any hardware frame pools used for output must therefore be
+     * of fixed size.  The extra frames set here are on top of any number
+     * that the filter needs internally in order to operate normally.
+     *
+     * This field must be set before the graph containing this filter is
+     * configured.
+     */
+    int extra_hw_frames;
+} AVFilterContext;
 
 /**
  * A link between two filters. This contains pointers to the source and
@@ -516,6 +386,11 @@ struct AVFilterContext {
  * the pads involved. In addition, this link also contains the parameters
  * which have been negotiated and agreed upon between the filter, such as
  * image dimensions, format, etc.
+ *
+ * Applications must not normally access the link structure directly.
+ * Use the buffersrc and buffersink API instead.
+ * In the future, access to the header may be reserved for filters
+ * implementation.
  */
 struct AVFilterLink {
     AVFilterContext *src;       ///< source filter
@@ -526,15 +401,25 @@ struct AVFilterLink {
 
     enum AVMediaType type;      ///< filter media type
 
+    int format;                 ///< agreed upon media format
+
     /* These parameters apply only to video */
     int w;                      ///< agreed upon image width
     int h;                      ///< agreed upon image height
     AVRational sample_aspect_ratio; ///< agreed upon sample aspect ratio
-    /* These parameters apply only to audio */
-    uint64_t channel_layout;    ///< channel layout of current buffer (see libavutil/audioconvert.h)
-    int sample_rate;            ///< samples per second
+    /**
+     * For non-YUV links, these are respectively set to fallback values (as
+     * appropriate for that colorspace).
+     *
+     * Note: This includes grayscale formats, as these are currently treated
+     * as forced full range always.
+     */
+    enum AVColorSpace colorspace;   ///< agreed upon YUV color space
+    enum AVColorRange color_range;  ///< agreed upon YUV color range
 
-    int format;                 ///< agreed upon media format
+    /* These parameters apply only to audio */
+    int sample_rate;            ///< samples per second
+    AVChannelLayout ch_layout;  ///< channel layout of current buffer (see libavutil/channel_layout.h)
 
     /**
      * Define the time base used by the PTS of the frames/samples
@@ -545,6 +430,11 @@ struct AVFilterLink {
      */
     AVRational time_base;
 
+    AVFrameSideData **side_data;
+    int nb_side_data;
+
+    enum AVAlphaMode alpha_mode; ///< alpha mode (for videos with an alpha channel)
+
     /*****************************************************************
      * All fields below this line are not part of the public API. They
      * may not be used outside of libavfilter and can be changed and
@@ -552,162 +442,16 @@ struct AVFilterLink {
      * New public fields should be added right above.
      *****************************************************************
      */
-    /**
-     * Lists of formats and channel layouts supported by the input and output
-     * filters respectively. These lists are used for negotiating the format
-     * to actually be used, which will be loaded into the format and
-     * channel_layout members, above, when chosen.
-     *
-     */
-    AVFilterFormats *in_formats;
-    AVFilterFormats *out_formats;
 
     /**
-     * Lists of channel layouts and sample rates used for automatic
-     * negotiation.
+     * Lists of supported formats / etc. supported by the input filter.
      */
-    AVFilterFormats  *in_samplerates;
-    AVFilterFormats *out_samplerates;
-    struct AVFilterChannelLayouts  *in_channel_layouts;
-    struct AVFilterChannelLayouts *out_channel_layouts;
+    AVFilterFormatsConfig incfg;
 
     /**
-     * Audio only, the destination filter sets this to a non-zero value to
-     * request that buffers with the given number of samples should be sent to
-     * it. AVFilterPad.needs_fifo must also be set on the corresponding input
-     * pad.
-     * Last buffer before EOF will be padded with silence.
+     * Lists of supported formats / etc. supported by the output filter.
      */
-    int request_samples;
-
-    /** stage of the initialization of the link properties (dimensions, etc) */
-    enum {
-        AVLINK_UNINIT = 0,      ///< not started
-        AVLINK_STARTINIT,       ///< started, but incomplete
-        AVLINK_INIT             ///< complete
-    } init_state;
-
-    /**
-     * The buffer reference currently being sent across the link by the source
-     * filter. This is used internally by the filter system to allow
-     * automatic copying of buffers which do not have sufficient permissions
-     * for the destination. This should not be accessed directly by the
-     * filters.
-     */
-    AVFilterBufferRef *src_buf;
-
-    /**
-     * The buffer reference to the frame sent across the link by the
-     * source filter, which is read by the destination filter. It is
-     * automatically set up by ff_start_frame().
-     *
-     * Depending on the permissions, it may either be the same as
-     * src_buf or an automatic copy of it.
-     *
-     * It is automatically freed by the filter system when calling
-     * ff_end_frame(). In case you save the buffer reference
-     * internally (e.g. if you cache it for later reuse), or give it
-     * away (e.g. if you pass the reference to the next filter) it
-     * must be set to NULL before calling ff_end_frame().
-     */
-    AVFilterBufferRef *cur_buf;
-
-    /**
-     * The buffer reference to the frame which is sent to output by
-     * the source filter.
-     *
-     * If no start_frame callback is defined on a link,
-     * ff_start_frame() will automatically request a new buffer on the
-     * first output link of the destination filter. The reference to
-     * the buffer so obtained is stored in the out_buf field on the
-     * output link.
-     *
-     * It can also be set by the filter code in case the filter needs
-     * to access the output buffer later. For example the filter code
-     * may set it in a custom start_frame, and access it in
-     * draw_slice.
-     *
-     * It is automatically freed by the filter system in
-     * ff_end_frame().
-     */
-    AVFilterBufferRef *out_buf;
-
-    struct AVFilterPool *pool;
-
-    /**
-     * Graph the filter belongs to.
-     */
-    struct AVFilterGraph *graph;
-
-    /**
-     * Current timestamp of the link, as defined by the most recent
-     * frame(s), in AV_TIME_BASE units.
-     */
-    int64_t current_pts;
-
-    /**
-     * Index in the age array.
-     */
-    int age_index;
-
-    /**
-     * Frame rate of the stream on the link, or 1/0 if unknown;
-     * if left to 0/0, will be automatically be copied from the first input
-     * of the source filter if it exists.
-     *
-     * Sources should set it to the best estimation of the real frame rate.
-     * Filters should update it if necessary depending on their function.
-     * Sinks can use it to set a default output frame rate.
-     * It is similar to the r_frame_rate field in AVStream.
-     */
-    AVRational frame_rate;
-
-    /**
-     * Buffer partially filled with samples to achieve a fixed/minimum size.
-     */
-    AVFilterBufferRef *partial_buf;
-
-    /**
-     * Size of the partial buffer to allocate.
-     * Must be between min_samples and max_samples.
-     */
-    int partial_buf_size;
-
-    /**
-     * Minimum number of samples to filter at once. If filter_samples() is
-     * called with fewer samples, it will accumulate them in partial_buf.
-     * This field and the related ones must not be changed after filtering
-     * has started.
-     * If 0, all related fields are ignored.
-     */
-    int min_samples;
-
-    /**
-     * Maximum number of samples to filter at once. If filter_samples() is
-     * called with more samples, it will split them.
-     */
-    int max_samples;
-
-    /**
-     * The buffer reference currently being received across the link by the
-     * destination filter. This is used internally by the filter system to
-     * allow automatic copying of buffers which do not have sufficient
-     * permissions for the destination. This should not be accessed directly
-     * by the filters.
-     */
-    AVFilterBufferRef *cur_buf_copy;
-
-    /**
-     * True if the link is closed.
-     * If set, all attemps of start_frame, filter_samples or request_frame
-     * will fail with AVERROR_EOF, and if necessary the reference will be
-     * destroyed.
-     * If request_frame returns AVERROR_EOF, this flag is set on the
-     * corresponding link.
-     * It can be set also be set by either the source or the destination
-     * filter.
-     */
-    int closed;
+    AVFilterFormatsConfig outcfg;
 };
 
 /**
@@ -722,58 +466,6 @@ struct AVFilterLink {
 int avfilter_link(AVFilterContext *src, unsigned srcpad,
                   AVFilterContext *dst, unsigned dstpad);
 
-/**
- * Free the link in *link, and set its pointer to NULL.
- */
-void avfilter_link_free(AVFilterLink **link);
-
-/**
- * Set the closed field of a link.
- */
-void avfilter_link_set_closed(AVFilterLink *link, int closed);
-
-/**
- * Negotiate the media format, dimensions, etc of all inputs to a filter.
- *
- * @param filter the filter to negotiate the properties for its inputs
- * @return       zero on successful negotiation
- */
-int avfilter_config_links(AVFilterContext *filter);
-
-/**
- * Create a buffer reference wrapped around an already allocated image
- * buffer.
- *
- * @param data pointers to the planes of the image to reference
- * @param linesize linesizes for the planes of the image to reference
- * @param perms the required access permissions
- * @param w the width of the image specified by the data and linesize arrays
- * @param h the height of the image specified by the data and linesize arrays
- * @param format the pixel format of the image specified by the data and linesize arrays
- */
-AVFilterBufferRef *
-avfilter_get_video_buffer_ref_from_arrays(uint8_t * const data[4], const int linesize[4], int perms,
-                                          int w, int h, enum AVPixelFormat format);
-
-/**
- * Create an audio buffer reference wrapped around an already
- * allocated samples buffer.
- *
- * @param data           pointers to the samples plane buffers
- * @param linesize       linesize for the samples plane buffers
- * @param perms          the required access permissions
- * @param nb_samples     number of samples per channel
- * @param sample_fmt     the format of each sample in the buffer to allocate
- * @param channel_layout the channel layout of the buffer
- */
-AVFilterBufferRef *avfilter_get_audio_buffer_ref_from_arrays(uint8_t **data,
-                                                             int linesize,
-                                                             int perms,
-                                                             int nb_samples,
-                                                             enum AVSampleFormat sample_fmt,
-                                                             uint64_t channel_layout);
-
-
 #define AVFILTER_CMD_FLAG_ONE   1 ///< Stop once a filter understood the command (for target=all for example), fast filters are favored automatically
 #define AVFILTER_CMD_FLAG_FAST  2 ///< Only execute command when its fast (like a video out that supports contrast adjustment in hw)
 
@@ -783,23 +475,16 @@ AVFilterBufferRef *avfilter_get_audio_buffer_ref_from_arrays(uint8_t **data,
  */
 int avfilter_process_command(AVFilterContext *filter, const char *cmd, const char *arg, char *res, int res_len, int flags);
 
-/** Initialize the filter system. Register all builtin filters. */
-void avfilter_register_all(void);
-
-/** Uninitialize the filter system. Unregister all filters. */
-void avfilter_uninit(void);
-
 /**
- * Register a filter. This is only needed if you plan to use
- * avfilter_get_by_name later to lookup the AVFilter structure by name. A
- * filter can still by instantiated with avfilter_open even if it is not
- * registered.
+ * Iterate over all registered filters.
  *
- * @param filter the filter to register
- * @return 0 if the registration was successful, a negative value
- * otherwise
+ * @param opaque a pointer where libavfilter will store the iteration state. Must
+ *               point to NULL to start the iteration.
+ *
+ * @return the next registered filter or NULL when the iteration is
+ *         finished
  */
-int avfilter_register(AVFilter *filter);
+const AVFilter *av_filter_iterate(void **opaque);
 
 /**
  * Get a filter definition matching the given name.
@@ -808,41 +493,46 @@ int avfilter_register(AVFilter *filter);
  * @return     the filter definition, if any matching one is registered.
  *             NULL if none found.
  */
-AVFilter *avfilter_get_by_name(const char *name);
+const AVFilter *avfilter_get_by_name(const char *name);
+
 
 /**
- * If filter is NULL, returns a pointer to the first registered filter pointer,
- * if filter is non-NULL, returns the next pointer after filter.
- * If the returned pointer points to NULL, the last registered filter
- * was already reached.
- */
-AVFilter **av_filter_next(AVFilter **filter);
-
-/**
- * Create a filter instance.
+ * Initialize a filter with the supplied parameters.
  *
- * @param filter_ctx put here a pointer to the created filter context
- * on success, NULL on failure
- * @param filter    the filter to create an instance of
- * @param inst_name Name to give to the new instance. Can be NULL for none.
- * @return >= 0 in case of success, a negative error code otherwise
+ * @param ctx  uninitialized filter context to initialize
+ * @param args Options to initialize the filter with. This must be a
+ *             ':'-separated list of options in the 'key=value' form.
+ *             May be NULL if the options have been set directly using the
+ *             AVOptions API or there are no options that need to be set.
+ * @return 0 on success, a negative AVERROR on failure
  */
-int avfilter_open(AVFilterContext **filter_ctx, AVFilter *filter, const char *inst_name);
+int avfilter_init_str(AVFilterContext *ctx, const char *args);
 
 /**
- * Initialize a filter.
+ * Initialize a filter with the supplied dictionary of options.
  *
- * @param filter the filter to initialize
- * @param args   A string of parameters to use when initializing the filter.
- *               The format and meaning of this string varies by filter.
- * @param opaque Any extra non-string data needed by the filter. The meaning
- *               of this parameter varies by filter.
- * @return       zero on success
+ * @param ctx     uninitialized filter context to initialize
+ * @param options An AVDictionary filled with options for this filter. On
+ *                return this parameter will be destroyed and replaced with
+ *                a dict containing options that were not found. This dictionary
+ *                must be freed by the caller.
+ *                May be NULL, then this function is equivalent to
+ *                avfilter_init_str() with the second parameter set to NULL.
+ * @return 0 on success, a negative AVERROR on failure
+ *
+ * @note This function and avfilter_init_str() do essentially the same thing,
+ * the difference is in manner in which the options are passed. It is up to the
+ * calling code to choose whichever is more preferable. The two functions also
+ * behave differently when some of the provided options are not declared as
+ * supported by the filter. In such a case, avfilter_init_str() will fail, but
+ * this function will leave those extra options in the options AVDictionary and
+ * continue as usual.
  */
-int avfilter_init_filter(AVFilterContext *filter, const char *args, void *opaque);
+int avfilter_init_dict(AVFilterContext *ctx, AVDictionary **options);
 
 /**
- * Free a filter context.
+ * Free a filter context. This will also remove the filter from its
+ * filtergraph's list of filters.
  *
  * @param filter the filter to free
  */
@@ -859,5 +549,674 @@ void avfilter_free(AVFilterContext *filter);
  */
 int avfilter_insert_filter(AVFilterLink *link, AVFilterContext *filt,
                            unsigned filt_srcpad_idx, unsigned filt_dstpad_idx);
+
+/**
+ * @return AVClass for AVFilterContext.
+ *
+ * @see av_opt_find().
+ */
+const AVClass *avfilter_get_class(void);
+
+/**
+ * A function pointer passed to the @ref AVFilterGraph.execute callback to be
+ * executed multiple times, possibly in parallel.
+ *
+ * @param ctx the filter context the job belongs to
+ * @param arg an opaque parameter passed through from @ref
+ *            AVFilterGraph.execute
+ * @param jobnr the index of the job being executed
+ * @param nb_jobs the total number of jobs
+ *
+ * @return 0 on success, a negative AVERROR on error
+ */
+typedef int (avfilter_action_func)(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs);
+
+/**
+ * A function executing multiple jobs, possibly in parallel.
+ *
+ * @param ctx the filter context to which the jobs belong
+ * @param func the function to be called multiple times
+ * @param arg the argument to be passed to func
+ * @param ret a nb_jobs-sized array to be filled with return values from each
+ *            invocation of func
+ * @param nb_jobs the number of jobs to execute
+ *
+ * @return 0 on success, a negative AVERROR on error
+ */
+typedef int (avfilter_execute_func)(AVFilterContext *ctx, avfilter_action_func *func,
+                                    void *arg, int *ret, int nb_jobs);
+
+typedef struct AVFilterGraph {
+    const AVClass *av_class;
+    AVFilterContext **filters;
+    unsigned nb_filters;
+
+    char *scale_sws_opts; ///< sws options to use for the auto-inserted scale filters
+
+    /**
+     * Type of multithreading allowed for filters in this graph. A combination
+     * of AVFILTER_THREAD_* flags.
+     *
+     * May be set by the caller at any point, the setting will apply to all
+     * filters initialized after that. The default is allowing everything.
+     *
+     * When a filter in this graph is initialized, this field is combined using
+     * bit AND with AVFilterContext.thread_type to get the final mask used for
+     * determining allowed threading types. I.e. a threading type needs to be
+     * set in both to be allowed.
+     */
+    int thread_type;
+
+    /**
+     * Maximum number of threads used by filters in this graph. May be set by
+     * the caller before adding any filters to the filtergraph. Zero (the
+     * default) means that the number of threads is determined automatically.
+     */
+    int nb_threads;
+
+    /**
+     * Opaque user data. May be set by the caller to an arbitrary value, e.g. to
+     * be used from callbacks like @ref AVFilterGraph.execute.
+     * Libavfilter will not touch this field in any way.
+     */
+    void *opaque;
+
+    /**
+     * This callback may be set by the caller immediately after allocating the
+     * graph and before adding any filters to it, to provide a custom
+     * multithreading implementation.
+     *
+     * If set, filters with slice threading capability will call this callback
+     * to execute multiple jobs in parallel.
+     *
+     * If this field is left unset, libavfilter will use its internal
+     * implementation, which may or may not be multithreaded depending on the
+     * platform and build options.
+     */
+    avfilter_execute_func *execute;
+
+    char *aresample_swr_opts; ///< swr options to use for the auto-inserted aresample filters, Access ONLY through AVOptions
+
+    /**
+     * Sets the maximum number of buffered frames in the filtergraph combined.
+     *
+     * Zero means no limit. This field must be set before calling
+     * avfilter_graph_config().
+     */
+    unsigned max_buffered_frames;
+} AVFilterGraph;
+
+/**
+ * Allocate a filter graph.
+ *
+ * @return the allocated filter graph on success or NULL.
+ */
+AVFilterGraph *avfilter_graph_alloc(void);
+
+/**
+ * Create a new filter instance in a filter graph.
+ *
+ * @param graph graph in which the new filter will be used
+ * @param filter the filter to create an instance of
+ * @param name Name to give to the new instance (will be copied to
+ *             AVFilterContext.name). This may be used by the caller to identify
+ *             different filters, libavfilter itself assigns no semantics to
+ *             this parameter. May be NULL.
+ *
+ * @return the context of the newly created filter instance (note that it is
+ *         also retrievable directly through AVFilterGraph.filters or with
+ *         avfilter_graph_get_filter()) on success or NULL on failure.
+ */
+AVFilterContext *avfilter_graph_alloc_filter(AVFilterGraph *graph,
+                                             const AVFilter *filter,
+                                             const char *name);
+
+/**
+ * Get a filter instance identified by instance name from graph.
+ *
+ * @param graph filter graph to search through.
+ * @param name filter instance name (should be unique in the graph).
+ * @return the pointer to the found filter instance or NULL if it
+ * cannot be found.
+ */
+AVFilterContext *avfilter_graph_get_filter(AVFilterGraph *graph, const char *name);
+
+/**
+ * A convenience wrapper that allocates and initializes a filter in a single
+ * step. The filter instance is created from the filter filt and inited with the
+ * parameter args. opaque is currently ignored.
+ *
+ * In case of success put in *filt_ctx the pointer to the created
+ * filter instance, otherwise set *filt_ctx to NULL.
+ *
+ * @param name the instance name to give to the created filter instance
+ * @param graph_ctx the filter graph
+ * @return a negative AVERROR error code in case of failure, a non
+ * negative value otherwise
+ *
+ * @warning Since the filter is initialized after this function successfully
+ *          returns, you MUST NOT set any further options on it. If you need to
+ *          do that, call ::avfilter_graph_alloc_filter(), followed by setting
+ *          the options, followed by ::avfilter_init_dict() instead of this
+ *          function.
+ */
+int avfilter_graph_create_filter(AVFilterContext **filt_ctx, const AVFilter *filt,
+                                 const char *name, const char *args, void *opaque,
+                                 AVFilterGraph *graph_ctx);
+
+/**
+ * Enable or disable automatic format conversion inside the graph.
+ *
+ * Note that format conversion can still happen inside explicitly inserted
+ * scale and aresample filters.
+ *
+ * @param flags  any of the AVFILTER_AUTO_CONVERT_* constants
+ */
+void avfilter_graph_set_auto_convert(AVFilterGraph *graph, unsigned flags);
+
+enum {
+    AVFILTER_AUTO_CONVERT_ALL  =  0, /**< all automatic conversions enabled */
+    AVFILTER_AUTO_CONVERT_NONE = -1, /**< all automatic conversions disabled */
+};
+
+/**
+ * Check validity and configure all the links and formats in the graph.
+ *
+ * @param graphctx the filter graph
+ * @param log_ctx context used for logging
+ * @return >= 0 in case of success, a negative AVERROR code otherwise
+ */
+int avfilter_graph_config(AVFilterGraph *graphctx, void *log_ctx);
+
+/**
+ * Free a graph, destroy its links, and set *graph to NULL.
+ * If *graph is NULL, do nothing.
+ */
+void avfilter_graph_free(AVFilterGraph **graph);
+
+/**
+ * A linked-list of the inputs/outputs of the filter chain.
+ *
+ * This is mainly useful for avfilter_graph_parse() / avfilter_graph_parse2(),
+ * where it is used to communicate open (unlinked) inputs and outputs from and
+ * to the caller.
+ * This struct specifies, per each not connected pad contained in the graph, the
+ * filter context and the pad index required for establishing a link.
+ */
+typedef struct AVFilterInOut {
+    /** unique name for this input/output in the list */
+    char *name;
+
+    /** filter context associated to this input/output */
+    AVFilterContext *filter_ctx;
+
+    /** index of the filt_ctx pad to use for linking */
+    int pad_idx;
+
+    /** next input/input in the list, NULL if this is the last */
+    struct AVFilterInOut *next;
+} AVFilterInOut;
+
+/**
+ * Allocate a single AVFilterInOut entry.
+ * Must be freed with avfilter_inout_free().
+ * @return allocated AVFilterInOut on success, NULL on failure.
+ */
+AVFilterInOut *avfilter_inout_alloc(void);
+
+/**
+ * Free the supplied list of AVFilterInOut and set *inout to NULL.
+ * If *inout is NULL, do nothing.
+ */
+void avfilter_inout_free(AVFilterInOut **inout);
+
+/**
+ * Add a graph described by a string to a graph.
+ *
+ * @note The caller must provide the lists of inputs and outputs,
+ * which therefore must be known before calling the function.
+ *
+ * @note The inputs parameter describes inputs of the already existing
+ * part of the graph; i.e. from the point of view of the newly created
+ * part, they are outputs. Similarly the outputs parameter describes
+ * outputs of the already existing filters, which are provided as
+ * inputs to the parsed filters.
+ *
+ * @param graph   the filter graph where to link the parsed graph context
+ * @param filters string to be parsed
+ * @param inputs  linked list to the inputs of the graph
+ * @param outputs linked list to the outputs of the graph
+ * @return zero on success, a negative AVERROR code on error
+ */
+int avfilter_graph_parse(AVFilterGraph *graph, const char *filters,
+                         AVFilterInOut *inputs, AVFilterInOut *outputs,
+                         void *log_ctx);
+
+/**
+ * Add a graph described by a string to a graph.
+ *
+ * In the graph filters description, if the input label of the first
+ * filter is not specified, "in" is assumed; if the output label of
+ * the last filter is not specified, "out" is assumed.
+ *
+ * @param graph   the filter graph where to link the parsed graph context
+ * @param filters string to be parsed
+ * @param inputs  pointer to a linked list to the inputs of the graph, may be NULL.
+ *                If non-NULL, *inputs is updated to contain the list of open inputs
+ *                after the parsing, should be freed with avfilter_inout_free().
+ * @param outputs pointer to a linked list to the outputs of the graph, may be NULL.
+ *                If non-NULL, *outputs is updated to contain the list of open outputs
+ *                after the parsing, should be freed with avfilter_inout_free().
+ * @return non negative on success, a negative AVERROR code on error
+ */
+int avfilter_graph_parse_ptr(AVFilterGraph *graph, const char *filters,
+                             AVFilterInOut **inputs, AVFilterInOut **outputs,
+                             void *log_ctx);
+
+/**
+ * Add a graph described by a string to a graph.
+ *
+ * @param[in]  graph   the filter graph where to link the parsed graph context
+ * @param[in]  filters string to be parsed
+ * @param[out] inputs  a linked list of all free (unlinked) inputs of the
+ *                     parsed graph will be returned here. It is to be freed
+ *                     by the caller using avfilter_inout_free().
+ * @param[out] outputs a linked list of all free (unlinked) outputs of the
+ *                     parsed graph will be returned here. It is to be freed by the
+ *                     caller using avfilter_inout_free().
+ * @return zero on success, a negative AVERROR code on error
+ *
+ * @note This function returns the inputs and outputs that are left
+ * unlinked after parsing the graph and the caller then deals with
+ * them.
+ * @note This function makes no reference whatsoever to already
+ * existing parts of the graph and the inputs parameter will on return
+ * contain inputs of the newly parsed part of the graph.  Analogously
+ * the outputs parameter will contain outputs of the newly created
+ * filters.
+ */
+int avfilter_graph_parse2(AVFilterGraph *graph, const char *filters,
+                          AVFilterInOut **inputs,
+                          AVFilterInOut **outputs);
+
+/**
+ * Parameters of a filter's input or output pad.
+ *
+ * Created as a child of AVFilterParams by avfilter_graph_segment_parse().
+ * Freed in avfilter_graph_segment_free().
+ */
+typedef struct AVFilterPadParams {
+    /**
+     * An av_malloc()'ed string containing the pad label.
+     *
+     * May be av_free()'d and set to NULL by the caller, in which case this pad
+     * will be treated as unlabeled for linking.
+     * May also be replaced by another av_malloc()'ed string.
+     */
+    char *label;
+} AVFilterPadParams;
+
+/**
+ * Parameters describing a filter to be created in a filtergraph.
+ *
+ * Created as a child of AVFilterGraphSegment by avfilter_graph_segment_parse().
+ * Freed in avfilter_graph_segment_free().
+ */
+typedef struct AVFilterParams {
+    /**
+     * The filter context.
+     *
+     * Created by avfilter_graph_segment_create_filters() based on
+     * AVFilterParams.filter_name and instance_name.
+     *
+     * Callers may also create the filter context manually, then they should
+     * av_free() filter_name and set it to NULL. Such AVFilterParams instances
+     * are then skipped by avfilter_graph_segment_create_filters().
+     */
+    AVFilterContext     *filter;
+
+    /**
+     * Name of the AVFilter to be used.
+     *
+     * An av_malloc()'ed string, set by avfilter_graph_segment_parse(). Will be
+     * passed to avfilter_get_by_name() by
+     * avfilter_graph_segment_create_filters().
+     *
+     * Callers may av_free() this string and replace it with another one or
+     * NULL. If the caller creates the filter instance manually, this string
+     * MUST be set to NULL.
+     *
+     * When both AVFilterParams.filter an AVFilterParams.filter_name are NULL,
+     * this AVFilterParams instance is skipped by avfilter_graph_segment_*()
+     * functions.
+     */
+    char                *filter_name;
+    /**
+     * Name to be used for this filter instance.
+     *
+     * An av_malloc()'ed string, may be set by avfilter_graph_segment_parse() or
+     * left NULL. The caller may av_free() this string and replace with another
+     * one or NULL.
+     *
+     * Will be used by avfilter_graph_segment_create_filters() - passed as the
+     * third argument to avfilter_graph_alloc_filter(), then freed and set to
+     * NULL.
+     */
+    char                *instance_name;
+
+    /**
+     * Options to be applied to the filter.
+     *
+     * Filled by avfilter_graph_segment_parse(). Afterwards may be freely
+     * modified by the caller.
+     *
+     * Will be applied to the filter by avfilter_graph_segment_apply_opts()
+     * with an equivalent of av_opt_set_dict2(filter, &opts, AV_OPT_SEARCH_CHILDREN),
+     * i.e. any unapplied options will be left in this dictionary.
+     */
+    AVDictionary        *opts;
+
+    AVFilterPadParams  **inputs;
+    unsigned          nb_inputs;
+
+    AVFilterPadParams  **outputs;
+    unsigned          nb_outputs;
+} AVFilterParams;
+
+/**
+ * A filterchain is a list of filter specifications.
+ *
+ * Created as a child of AVFilterGraphSegment by avfilter_graph_segment_parse().
+ * Freed in avfilter_graph_segment_free().
+ */
+typedef struct AVFilterChain {
+    AVFilterParams  **filters;
+    size_t         nb_filters;
+} AVFilterChain;
+
+/**
+ * A parsed representation of a filtergraph segment.
+ *
+ * A filtergraph segment is conceptually a list of filterchains, with some
+ * supplementary information (e.g. format conversion flags).
+ *
+ * Created by avfilter_graph_segment_parse(). Must be freed with
+ * avfilter_graph_segment_free().
+ */
+typedef struct AVFilterGraphSegment {
+    /**
+     * The filtergraph this segment is associated with.
+     * Set by avfilter_graph_segment_parse().
+     */
+    AVFilterGraph *graph;
+
+    /**
+     * A list of filter chain contained in this segment.
+     * Set in avfilter_graph_segment_parse().
+     */
+    AVFilterChain **chains;
+    size_t       nb_chains;
+
+    /**
+     * A string containing a colon-separated list of key=value options applied
+     * to all scale filters in this segment.
+     *
+     * May be set by avfilter_graph_segment_parse().
+     * The caller may free this string with av_free() and replace it with a
+     * different av_malloc()'ed string.
+     */
+    char *scale_sws_opts;
+} AVFilterGraphSegment;
+
+/**
+ * Parse a textual filtergraph description into an intermediate form.
+ *
+ * This intermediate representation is intended to be modified by the caller as
+ * described in the documentation of AVFilterGraphSegment and its children, and
+ * then applied to the graph either manually or with other
+ * avfilter_graph_segment_*() functions. See the documentation for
+ * avfilter_graph_segment_apply() for the canonical way to apply
+ * AVFilterGraphSegment.
+ *
+ * @param graph Filter graph the parsed segment is associated with. Will only be
+ *              used for logging and similar auxiliary purposes. The graph will
+ *              not be actually modified by this function - the parsing results
+ *              are instead stored in seg for further processing.
+ * @param graph_str a string describing the filtergraph segment
+ * @param flags reserved for future use, caller must set to 0 for now
+ * @param seg A pointer to the newly-created AVFilterGraphSegment is written
+ *            here on success. The graph segment is owned by the caller and must
+ *            be freed with avfilter_graph_segment_free() before graph itself is
+ *            freed.
+ *
+ * @retval "non-negative number" success
+ * @retval "negative error code" failure
+ */
+int avfilter_graph_segment_parse(AVFilterGraph *graph, const char *graph_str,
+                                 int flags, AVFilterGraphSegment **seg);
+
+/**
+ * Create filters specified in a graph segment.
+ *
+ * Walk through the creation-pending AVFilterParams in the segment and create
+ * new filter instances for them.
+ * Creation-pending params are those where AVFilterParams.filter_name is
+ * non-NULL (and hence AVFilterParams.filter is NULL). All other AVFilterParams
+ * instances are ignored.
+ *
+ * For any filter created by this function, the corresponding
+ * AVFilterParams.filter is set to the newly-created filter context,
+ * AVFilterParams.filter_name and AVFilterParams.instance_name are freed and set
+ * to NULL.
+ *
+ * @param seg the filtergraph segment to process
+ * @param flags reserved for future use, caller must set to 0 for now
+ *
+ * @retval "non-negative number" Success, all creation-pending filters were
+ *                               successfully created
+ * @retval AVERROR_FILTER_NOT_FOUND some filter's name did not correspond to a
+ *                                  known filter
+ * @retval "another negative error code" other failures
+ *
+ * @note Calling this function multiple times is safe, as it is idempotent.
+ */
+int avfilter_graph_segment_create_filters(AVFilterGraphSegment *seg, int flags);
+
+/**
+ * Apply parsed options to filter instances in a graph segment.
+ *
+ * Walk through all filter instances in the graph segment that have option
+ * dictionaries associated with them and apply those options with
+ * av_opt_set_dict2(..., AV_OPT_SEARCH_CHILDREN). AVFilterParams.opts is
+ * replaced by the dictionary output by av_opt_set_dict2(), which should be
+ * empty (NULL) if all options were successfully applied.
+ *
+ * If any options could not be found, this function will continue processing all
+ * other filters and finally return AVERROR_OPTION_NOT_FOUND (unless another
+ * error happens). The calling program may then deal with unapplied options as
+ * it wishes.
+ *
+ * Any creation-pending filters (see avfilter_graph_segment_create_filters())
+ * present in the segment will cause this function to fail. AVFilterParams with
+ * no associated filter context are simply skipped.
+ *
+ * @param seg the filtergraph segment to process
+ * @param flags reserved for future use, caller must set to 0 for now
+ *
+ * @retval "non-negative number" Success, all options were successfully applied.
+ * @retval AVERROR_OPTION_NOT_FOUND some options were not found in a filter
+ * @retval "another negative error code" other failures
+ *
+ * @note Calling this function multiple times is safe, as it is idempotent.
+ */
+int avfilter_graph_segment_apply_opts(AVFilterGraphSegment *seg, int flags);
+
+/**
+ * Initialize all filter instances in a graph segment.
+ *
+ * Walk through all filter instances in the graph segment and call
+ * avfilter_init_dict(..., NULL) on those that have not been initialized yet.
+ *
+ * Any creation-pending filters (see avfilter_graph_segment_create_filters())
+ * present in the segment will cause this function to fail. AVFilterParams with
+ * no associated filter context or whose filter context is already initialized,
+ * are simply skipped.
+ *
+ * @param seg the filtergraph segment to process
+ * @param flags reserved for future use, caller must set to 0 for now
+ *
+ * @retval "non-negative number" Success, all filter instances were successfully
+ *                               initialized
+ * @retval "negative error code" failure
+ *
+ * @note Calling this function multiple times is safe, as it is idempotent.
+ */
+int avfilter_graph_segment_init(AVFilterGraphSegment *seg, int flags);
+
+/**
+ * Link filters in a graph segment.
+ *
+ * Walk through all filter instances in the graph segment and try to link all
+ * unlinked input and output pads. Any creation-pending filters (see
+ * avfilter_graph_segment_create_filters()) present in the segment will cause
+ * this function to fail. Disabled filters and already linked pads are skipped.
+ *
+ * Every filter output pad that has a corresponding AVFilterPadParams with a
+ * non-NULL label is
+ * - linked to the input with the matching label, if one exists;
+ * - exported in the outputs linked list otherwise, with the label preserved.
+ * Unlabeled outputs are
+ * - linked to the first unlinked unlabeled input in the next non-disabled
+ *   filter in the chain, if one exists
+ * - exported in the outputs linked list otherwise, with NULL label
+ *
+ * Similarly, unlinked input pads are exported in the inputs linked list.
+ *
+ * @param seg the filtergraph segment to process
+ * @param flags reserved for future use, caller must set to 0 for now
+ * @param[out] inputs  a linked list of all free (unlinked) inputs of the
+ *                     filters in this graph segment will be returned here. It
+ *                     is to be freed by the caller using avfilter_inout_free().
+ * @param[out] outputs a linked list of all free (unlinked) outputs of the
+ *                     filters in this graph segment will be returned here. It
+ *                     is to be freed by the caller using avfilter_inout_free().
+ *
+ * @retval "non-negative number" success
+ * @retval "negative error code" failure
+ *
+ * @note Calling this function multiple times is safe, as it is idempotent.
+ */
+int avfilter_graph_segment_link(AVFilterGraphSegment *seg, int flags,
+                                AVFilterInOut **inputs,
+                                AVFilterInOut **outputs);
+
+/**
+ * Apply all filter/link descriptions from a graph segment to the associated filtergraph.
+ *
+ * This functions is currently equivalent to calling the following in sequence:
+ * - avfilter_graph_segment_create_filters();
+ * - avfilter_graph_segment_apply_opts();
+ * - avfilter_graph_segment_init();
+ * - avfilter_graph_segment_link();
+ * failing if any of them fails. This list may be extended in the future.
+ *
+ * Since the above functions are idempotent, the caller may call some of them
+ * manually, then do some custom processing on the filtergraph, then call this
+ * function to do the rest.
+ *
+ * @param seg the filtergraph segment to process
+ * @param flags reserved for future use, caller must set to 0 for now
+ * @param[out] inputs passed to avfilter_graph_segment_link()
+ * @param[out] outputs passed to avfilter_graph_segment_link()
+ *
+ * @retval "non-negative number" success
+ * @retval "negative error code" failure
+ *
+ * @note Calling this function multiple times is safe, as it is idempotent.
+ */
+int avfilter_graph_segment_apply(AVFilterGraphSegment *seg, int flags,
+                                 AVFilterInOut **inputs,
+                                 AVFilterInOut **outputs);
+
+/**
+ * Free the provided AVFilterGraphSegment and everything associated with it.
+ *
+ * @param seg double pointer to the AVFilterGraphSegment to be freed. NULL will
+ * be written to this pointer on exit from this function.
+ *
+ * @note
+ * The filter contexts (AVFilterParams.filter) are owned by AVFilterGraph rather
+ * than AVFilterGraphSegment, so they are not freed.
+ */
+void avfilter_graph_segment_free(AVFilterGraphSegment **seg);
+
+/**
+ * Send a command to one or more filter instances.
+ *
+ * @param graph  the filter graph
+ * @param target the filter(s) to which the command should be sent
+ *               "all" sends to all filters
+ *               otherwise it can be a filter or filter instance name
+ *               which will send the command to all matching filters.
+ * @param cmd    the command to send, for handling simplicity all commands must be alphanumeric only
+ * @param arg    the argument for the command
+ * @param res    a buffer with size res_size where the filter(s) can return a response.
+ *
+ * @returns >=0 on success otherwise an error code.
+ *              AVERROR(ENOSYS) on unsupported commands
+ */
+int avfilter_graph_send_command(AVFilterGraph *graph, const char *target, const char *cmd, const char *arg, char *res, int res_len, int flags);
+
+/**
+ * Queue a command for one or more filter instances.
+ *
+ * @param graph  the filter graph
+ * @param target the filter(s) to which the command should be sent
+ *               "all" sends to all filters
+ *               otherwise it can be a filter or filter instance name
+ *               which will send the command to all matching filters.
+ * @param cmd    the command to sent, for handling simplicity all commands must be alphanumeric only
+ * @param arg    the argument for the command
+ * @param ts     time at which the command should be sent to the filter
+ *
+ * @note As this executes commands after this function returns, no return code
+ *       from the filter is provided, also AVFILTER_CMD_FLAG_ONE is not supported.
+ */
+int avfilter_graph_queue_command(AVFilterGraph *graph, const char *target, const char *cmd, const char *arg, int flags, double ts);
+
+
+/**
+ * Dump a graph into a human-readable string representation.
+ *
+ * @param graph    the graph to dump
+ * @param options  formatting options; currently ignored
+ * @return  a string, or NULL in case of memory allocation failure;
+ *          the string must be freed using av_free
+ */
+char *avfilter_graph_dump(AVFilterGraph *graph, const char *options);
+
+/**
+ * Request a frame on the oldest sink link.
+ *
+ * If the request returns AVERROR_EOF, try the next.
+ *
+ * Note that this function is not meant to be the sole scheduling mechanism
+ * of a filtergraph, only a convenience function to help drain a filtergraph
+ * in a balanced way under normal circumstances.
+ *
+ * Also note that AVERROR_EOF does not mean that frames did not arrive on
+ * some of the sinks during the process.
+ * When there are multiple sink links, in case the requested link
+ * returns an EOF, this may cause a filter to flush pending frames
+ * which are sent to another sink link, although unrequested.
+ *
+ * @return  the return value of ff_request_frame(),
+ *          or AVERROR_EOF if all links returned AVERROR_EOF
+ */
+int avfilter_graph_request_oldest(AVFilterGraph *graph);
+
+/**
+ * @}
+ */
 
 #endif /* AVFILTER_AVFILTER_H */

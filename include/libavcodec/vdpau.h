@@ -50,45 +50,89 @@
  */
 
 #include <vdpau/vdpau.h>
-#include <vdpau/vdpau_x11.h>
 
-/** @brief The videoSurface is used for rendering. */
-#define FF_VDPAU_STATE_USED_FOR_RENDER 1
+#include "libavutil/avconfig.h"
+#include "libavutil/attributes.h"
+
+#include "avcodec.h"
+
+struct AVCodecContext;
+struct AVFrame;
+
+typedef int (*AVVDPAU_Render2)(struct AVCodecContext *, struct AVFrame *,
+                               const VdpPictureInfo *, uint32_t,
+                               const VdpBitstreamBuffer *);
 
 /**
- * @brief The videoSurface is needed for reference/prediction.
- * The codec manipulates this.
+ * This structure is used to share data between the libavcodec library and
+ * the client video application.
+ * This structure will be allocated and stored in AVCodecContext.hwaccel_context
+ * by av_vdpau_bind_context(). Members can be set by the user once
+ * during initialization or through each AVCodecContext.get_buffer()
+ * function call. In any case, they must be valid prior to calling
+ * decoding functions.
+ *
+ * The size of this structure is not a part of the public ABI and must not
+ * be used outside of libavcodec.
  */
-#define FF_VDPAU_STATE_USED_FOR_REFERENCE 2
+typedef struct AVVDPAUContext {
+    /**
+     * VDPAU decoder handle
+     *
+     * Set by user.
+     */
+    VdpDecoder decoder;
+
+    /**
+     * VDPAU decoder render callback
+     *
+     * Set by the user.
+     */
+    VdpDecoderRender *render;
+
+    AVVDPAU_Render2 render2;
+} AVVDPAUContext;
 
 /**
- * @brief This structure is used as a callback between the FFmpeg
- * decoder (vd_) and presentation (vo_) module.
- * This is used for defining a video frame containing surface,
- * picture parameter, bitstream information etc which are passed
- * between the FFmpeg decoder and its clients.
+ * Associate a VDPAU device with a codec context for hardware acceleration.
+ * This function is meant to be called from the get_format() codec callback,
+ * or earlier. It can also be called after avcodec_flush_buffers() to change
+ * the underlying VDPAU device mid-stream (e.g. to recover from non-transparent
+ * display preemption).
+ *
+ * @note get_format() must return AV_PIX_FMT_VDPAU if this function completes
+ * successfully.
+ *
+ * @param avctx decoding context whose get_format() callback is invoked
+ * @param device VDPAU device handle to use for hardware acceleration
+ * @param get_proc_address VDPAU device driver
+ * @param flags zero of more OR'd AV_HWACCEL_FLAG_* flags
+ *
+ * @return 0 on success, an AVERROR code on failure.
  */
-struct vdpau_render_state {
-    VdpVideoSurface surface; ///< Used as rendered surface, never changed.
+int av_vdpau_bind_context(AVCodecContext *avctx, VdpDevice device,
+                          VdpGetProcAddress *get_proc_address, unsigned flags);
 
-    int state; ///< Holds FF_VDPAU_STATE_* values.
+/**
+ * Gets the parameters to create an adequate VDPAU video surface for the codec
+ * context using VDPAU hardware decoding acceleration.
+ *
+ * @note Behavior is undefined if the context was not successfully bound to a
+ * VDPAU device using av_vdpau_bind_context().
+ *
+ * @param avctx the codec context being used for decoding the stream
+ * @param type storage space for the VDPAU video surface chroma type
+ *              (or NULL to ignore)
+ * @param width storage space for the VDPAU video surface pixel width
+ *              (or NULL to ignore)
+ * @param height storage space for the VDPAU video surface pixel height
+ *              (or NULL to ignore)
+ *
+ * @return 0 on success, a negative AVERROR code on failure.
+ */
+int av_vdpau_get_surface_parameters(AVCodecContext *avctx, VdpChromaType *type,
+                                    uint32_t *width, uint32_t *height);
 
-    /** Describe size/location of the compressed video data.
-        Set to 0 when freeing bitstream_buffers. */
-    int bitstream_buffers_allocated;
-    int bitstream_buffers_used;
-    /** The user is responsible for freeing this buffer using av_freep(). */
-    VdpBitstreamBuffer *bitstream_buffers;
-
-    /** picture parameter information for all supported codecs */
-    union VdpPictureInfo {
-        VdpPictureInfoH264        h264;
-        VdpPictureInfoMPEG1Or2    mpeg;
-        VdpPictureInfoVC1          vc1;
-        VdpPictureInfoMPEG4Part2 mpeg4;
-    } info;
-};
-
-/* @}*/
+/** @} */
 
 #endif /* AVCODEC_VDPAU_H */

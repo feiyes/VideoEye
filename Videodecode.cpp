@@ -1,11 +1,11 @@
-/* 
+ï»¿/* 
  *
  * 
  * VideoEye
  *
- * À×Ïöæè Lei Xiaohua
+ * é›·éœ„éª… Lei Xiaohua
  * leixiaohua1020@126.com
- * ÖĞ¹ú´«Ã½´óÑ§/Êı×ÖµçÊÓ¼¼Êõ
+ * ä¸­å›½ä¼ åª’å¤§å­¦/æ•°å­—ç”µè§†æŠ€æœ¯
  * Communication University of China / Digital TV Technology
  * http://blog.csdn.net/leixiaohua1020
  *
@@ -16,7 +16,7 @@
 #include "afxdialogex.h"
 
 
-// Videodecode ¶Ô»°¿ò
+// Videodecode å¯¹è¯æ¡†
 
 IMPLEMENT_DYNAMIC(Videodecode, CDialogEx)
 
@@ -43,7 +43,7 @@ BEGIN_MESSAGE_MAP(Videodecode, CDialogEx)
 END_MESSAGE_MAP()
 
 
-// Videodecode ÏûÏ¢´¦Àí³ÌĞò
+// Videodecode æ¶ˆæ¯å¤„ç†ç¨‹åº
 BOOL Videodecode::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
@@ -51,10 +51,10 @@ BOOL Videodecode::OnInitDialog()
 	CString resloader;
 	resloader.LoadString(IDS_VIDEODECODE);
 	SetWindowText(resloader);
-	//ÕûĞĞÑ¡Ôñ£»ÓĞ±í¸ñÏß£»±íÍ·£»µ¥»÷¼¤»î
+	//è®¾ç½®åˆ—è¡¨çš„é£æ ¼ï¼ŒåŒ…æ‹¬å…¨é€‰ã€ç½‘æ ¼çº¿ã€åˆ—å¤´å¯æ‹–æ‹½ã€å•å‡»æ¿€ï¿½?
 	DWORD dwExStyle=LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_HEADERDRAGDROP|LVS_EX_ONECLICKACTIVATE;
-	//±¨±í·ç¸ñ£»µ¥ĞĞÑ¡Ôñ£»¸ßÁÁÏÔÊ¾Ñ¡ÔñĞĞ
-	//ÊÓÆµ
+	//å•é€‰ï¼ŒæŠ¥è¡¨é£æ ¼ï¼Œå§‹ç»ˆæ˜¾ç¤ºé€‰ä¸­çŠ¶ï¿½?
+	//è§†é¢‘
 	m_decodeframe_v.ModifyStyle(0,LVS_SINGLESEL|LVS_REPORT|LVS_SHOWSELALWAYS);
 	m_decodeframe_v.SetExtendedStyle(dwExStyle);
 	
@@ -81,7 +81,7 @@ void Videodecode::SystemClear(){
 }
 
 
-//ListCtrl¼ÓÑÕÉ«
+//ListCtrlï¿½ï¿½ï¿½ï¿½É«
 void Videodecode::OnCustomdrawMyList ( NMHDR* pNMHDR, LRESULT* pResult )
 {
 	//This code based on Michael Dunn's excellent article on
@@ -115,15 +115,15 @@ void Videodecode::OnCustomdrawMyList ( NMHDR* pNMHDR, LRESULT* pResult )
 		CString strTemp = m_decodeframe_v.GetItemText(nItem,1);
 		if(strTemp.Compare(_T("I"))==0){
 			clrNewTextColor = RGB(0,0,0);		//Set the text
-			clrNewBkColor = RGB(255,0,0);		//±³¾°ÉèÖÃ³ÉºìÉ«
+			clrNewBkColor = RGB(255,0,0);		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³Éºï¿½É«
 		}
 		else if(strTemp.Compare(_T("P"))==0){
 			clrNewTextColor = RGB(0,0,0);		
-			clrNewBkColor = RGB(0,255,255);		//±³¾°ÉèÖÃ³ÉÇàÉ«
+			clrNewBkColor = RGB(0,255,255);		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½ï¿½ï¿½É«
 		}
 		else if(strTemp.Compare(_T("B"))==0){
 			clrNewTextColor = RGB(0,0,0);		
-			clrNewBkColor = RGB(0,255,0);		//±³¾°ÉèÖÃ³ÉÂÌÉ«
+			clrNewBkColor = RGB(0,255,0);		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½ï¿½ï¿½É«
 		}else{
 			clrNewTextColor = RGB(0,0,0);		
 			clrNewBkColor = RGB(255,255,255);

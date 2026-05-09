@@ -28,15 +28,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *************************************************************************/
 
-#ifndef FLANN_NNINDEX_H
-#define FLANN_NNINDEX_H
+#ifndef OPENCV_FLANN_NNINDEX_H
+#define OPENCV_FLANN_NNINDEX_H
 
-#include <string>
-
-#include "general.h"
 #include "matrix.h"
 #include "result_set.h"
 #include "params.h"
+
+//! @cond IGNORED
 
 namespace cvflann
 {
@@ -69,11 +68,11 @@ public:
      */
     virtual void knnSearch(const Matrix<ElementType>& queries, Matrix<int>& indices, Matrix<DistanceType>& dists, int knn, const SearchParams& params)
     {
-        assert(queries.cols == veclen());
-        assert(indices.rows >= queries.rows);
-        assert(dists.rows >= queries.rows);
-        assert(int(indices.cols) >= knn);
-        assert(int(dists.cols) >= knn);
+        CV_Assert(queries.cols == veclen());
+        CV_Assert(indices.rows >= queries.rows);
+        CV_Assert(dists.rows >= queries.rows);
+        CV_Assert(int(indices.cols) >= knn);
+        CV_Assert(int(dists.cols) >= knn);
 
 #if 0
         KNNResultSet<DistanceType> resultSet(knn);
@@ -107,19 +106,19 @@ public:
             fprintf(stderr, "I can only search one feature at a time for range search\n");
             return -1;
         }
-        assert(query.cols == veclen());
-        assert(indices.cols == dists.cols);
+        CV_Assert(query.cols == veclen());
+        CV_Assert(indices.cols == dists.cols);
 
         int n = 0;
         int* indices_ptr = NULL;
         DistanceType* dists_ptr = NULL;
         if (indices.cols > 0) {
-            n = indices.cols;
+            n = (int)indices.cols;
             indices_ptr = indices[0];
             dists_ptr = dists[0];
         }
 
-        RadiusUniqueResultSet<DistanceType> resultSet(radius);
+        RadiusUniqueResultSet<DistanceType> resultSet((DistanceType)radius);
         resultSet.clear();
         findNeighbors(resultSet, query[0], params);
         if (n>0) {
@@ -127,7 +126,7 @@ public:
             else resultSet.copy(indices_ptr, dists_ptr, n);
         }
 
-        return resultSet.size();
+        return (int)resultSet.size();
     }
 
     /**
@@ -176,4 +175,6 @@ public:
 
 }
 
-#endif //FLANN_NNINDEX_H
+//! @endcond
+
+#endif //OPENCV_FLANN_NNINDEX_H

@@ -35,6 +35,11 @@
 #ifndef OPENCV_FLANN_DYNAMIC_BITSET_H_
 #define OPENCV_FLANN_DYNAMIC_BITSET_H_
 
+//! @cond IGNORED
+
+#ifndef FLANN_USE_BOOST
+#  define FLANN_USE_BOOST 0
+#endif
 //#define FLANN_USE_BOOST 1
 #if FLANN_USE_BOOST
 #include <boost/dynamic_bitset.hpp>
@@ -45,6 +50,8 @@ typedef boost::dynamic_bitset<> DynamicBitset;
 
 #include "dist.h"
 
+namespace cvflann {
+
 /** Class re-implementing the boost version of it
  * This helps not depending on boost, it also does not do the bound checks
  * and has a way to reset a block for speed
@@ -52,18 +59,18 @@ typedef boost::dynamic_bitset<> DynamicBitset;
 class DynamicBitset
 {
 public:
-    /** @param default constructor
+    /** default constructor
      */
-    DynamicBitset()
+    DynamicBitset() : size_(0)
     {
     }
 
-    /** @param only constructor we use in our code
-     * @param the size of the bitset (in bits)
+    /** only constructor we use in our code
+     * @param sz the size of the bitset (in bits)
      */
-    DynamicBitset(size_t size)
+    DynamicBitset(size_t sz)
     {
-        resize(size);
+        resize(sz);
         reset();
     }
 
@@ -82,7 +89,7 @@ public:
         return bitset_.empty();
     }
 
-    /** @param set all the bits to 0
+    /** set all the bits to 0
      */
     void reset()
     {
@@ -90,7 +97,6 @@ public:
     }
 
     /** @brief set one bit to 0
-     * @param
      */
     void reset(size_t index)
     {
@@ -101,23 +107,21 @@ public:
      * This function is useful when resetting a given set of bits so that the
      * whole bitset ends up being 0: if that's the case, we don't care about setting
      * other bits to 0
-     * @param
      */
     void reset_block(size_t index)
     {
         bitset_[index / cell_bit_size_] = 0;
     }
 
-    /** @param resize the bitset so that it contains at least size bits
-     * @param size
+    /** resize the bitset so that it contains at least sz bits
      */
-    void resize(size_t size)
+    void resize(size_t sz)
     {
-        size_ = size;
-        bitset_.resize(size / cell_bit_size_ + 1);
+        size_ = sz;
+        bitset_.resize(sz / cell_bit_size_ + 1);
     }
 
-    /** @param set a bit to true
+    /** set a bit to true
      * @param index the index of the bit to set to 1
      */
     void set(size_t index)
@@ -125,14 +129,14 @@ public:
         bitset_[index / cell_bit_size_] |= size_t(1) << (index % cell_bit_size_);
     }
 
-    /** @param gives the number of contained bits
+    /** gives the number of contained bits
      */
     size_t size() const
     {
         return size_;
     }
 
-    /** @param check if a bit is set
+    /** check if a bit is set
      * @param index the index of the bit to check
      * @return true if the bit is set
      */
@@ -147,6 +151,10 @@ private:
     static const unsigned int cell_bit_size_ = CHAR_BIT * sizeof(size_t);
 };
 
+} // namespace cvflann
+
 #endif
+
+//! @endcond
 
 #endif // OPENCV_FLANN_DYNAMIC_BITSET_H_
