@@ -110,7 +110,7 @@
     <ResourceCompile>
       <Culture>0x0804</Culture>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(IntDir);.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)libs\$(Platform)\$(Configuration)\*.dll" "$(OutDir)" /Y /S</Command>
@@ -124,7 +124,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -146,7 +146,7 @@
     <ResourceCompile>
       <Culture>0x0804</Culture>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(IntDir);.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)libs\$(Platform)\$(Configuration)\*.dll" "$(OutDir)" /Y /S</Command>
@@ -179,7 +179,7 @@
     <ResourceCompile>
       <Culture>0x0804</Culture>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(IntDir);.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)libs\$(Platform)\$(Configuration)\*.dll" "$(OutDir)" /Y /S</Command>
@@ -193,7 +193,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN64;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -215,7 +215,7 @@
     <ResourceCompile>
       <Culture>0x0804</Culture>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(IntDir);.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
       <Command>xcopy "$(SolutionDir)libs\$(Platform)\$(Configuration)\*.dll" "$(OutDir)" /Y /S</Command>
@@ -278,50 +278,50 @@
     <None Include="res\welcome_en.bmp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Assistantmediainfo.h" />
-    <ClInclude Include="Audiodecode.h" />
-    <ClInclude Include="cmdutils.h" />
-    <ClInclude Include="cmdutils_common_opts.h" />
-    <ClInclude Include="config.h" />
-    <ClInclude Include="Dataoutput.h" />
-    <ClInclude Include="Dfanalysis.h" />
-    <ClInclude Include="Dfanalysispic.h" />
+    <ClInclude Include="include\Assistantmediainfo.h" />
+    <ClInclude Include="include\Audiodecode.h" />
+    <ClInclude Include="include\cmdutils.h" />
+    <ClInclude Include="include\cmdutils_common_opts.h" />
+    <ClInclude Include="include\config.h" />
+    <ClInclude Include="include\Dataoutput.h" />
+    <ClInclude Include="include\Dfanalysis.h" />
+    <ClInclude Include="include\Dfanalysispic.h" />
     <ClInclude Include="include\MediaInfo\MediaInfoDLL.h" />
-    <ClInclude Include="Optplayer.h" />
-    <ClInclude Include="Sysinfo.h" />
-    <ClInclude Include="ve_play.h" />
-    <ClInclude Include="InputList.h" />
-    <ClInclude Include="Rawanalysis.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="VideoEye.h" />
-    <ClInclude Include="VideoEyeDlg.h" />
-    <ClInclude Include="stdafx.h" />
-    <ClInclude Include="targetver.h" />
-    <ClInclude Include="Videodecode.h" />
-    <ClInclude Include="Welcome.h" />
+    <ClInclude Include="include\Optplayer.h" />
+    <ClInclude Include="include\Sysinfo.h" />
+    <ClInclude Include="include\ve_play.h" />
+    <ClInclude Include="include\InputList.h" />
+    <ClInclude Include="include\Rawanalysis.h" />
+    <ClInclude Include="include\Resource.h" />
+    <ClInclude Include="include\VideoEye.h" />
+    <ClInclude Include="include\VideoEyeDlg.h" />
+    <ClInclude Include="include\stdafx.h" />
+    <ClInclude Include="include\targetver.h" />
+    <ClInclude Include="include\Videodecode.h" />
+    <ClInclude Include="include\Welcome.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Assistantmediainfo.cpp" />
-    <ClCompile Include="Audiodecode.cpp" />
-    <ClCompile Include="cmdutils.cpp" />
-    <ClCompile Include="Dataoutput.cpp" />
-    <ClCompile Include="Dfanalysis.cpp" />
-    <ClCompile Include="Dfanalysispic.cpp" />
-    <ClCompile Include="Optplayer.cpp" />
-    <ClCompile Include="Sysinfo.cpp" />
-    <ClCompile Include="ve_play.cpp" />
-    <ClCompile Include="InputList.cpp" />
-    <ClCompile Include="Rawanalysis.cpp" />
-    <ClCompile Include="VideoEye.cpp" />
-    <ClCompile Include="VideoEyeDlg.cpp" />
-    <ClCompile Include="stdafx.cpp">
+    <ClCompile Include="src\Assistantmediainfo.cpp" />
+    <ClCompile Include="src\Audiodecode.cpp" />
+    <ClCompile Include="src\cmdutils.cpp" />
+    <ClCompile Include="src\Dataoutput.cpp" />
+    <ClCompile Include="src\Dfanalysis.cpp" />
+    <ClCompile Include="src\Dfanalysispic.cpp" />
+    <ClCompile Include="src\Optplayer.cpp" />
+    <ClCompile Include="src\Sysinfo.cpp" />
+    <ClCompile Include="src\ve_play.cpp" />
+    <ClCompile Include="src\InputList.cpp" />
+    <ClCompile Include="src\Rawanalysis.cpp" />
+    <ClCompile Include="src\VideoEye.cpp" />
+    <ClCompile Include="src\VideoEyeDlg.cpp" />
+    <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Videodecode.cpp" />
-    <ClCompile Include="Welcome.cpp" />
+    <ClCompile Include="src\Videodecode.cpp" />
+    <ClCompile Include="src\Welcome.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="VideoEye.rc" />

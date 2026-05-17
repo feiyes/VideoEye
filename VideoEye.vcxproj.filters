@@ -175,117 +175,117 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="include\stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
+    <ClInclude Include="include\targetver.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
+    <ClInclude Include="include\Resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="cmdutils.h">
+    <ClInclude Include="include\cmdutils.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="cmdutils_common_opts.h">
+    <ClInclude Include="include\cmdutils_common_opts.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="config.h">
+    <ClInclude Include="include\config.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Welcome.h">
+    <ClInclude Include="include\Welcome.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="InputList.h">
+    <ClInclude Include="include\InputList.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Videodecode.h">
+    <ClInclude Include="include\Videodecode.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Audiodecode.h">
+    <ClInclude Include="include\Audiodecode.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Dataoutput.h">
+    <ClInclude Include="include\Dataoutput.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Assistantmediainfo.h">
+    <ClInclude Include="include\Assistantmediainfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Rawanalysis.h">
+    <ClInclude Include="include\Rawanalysis.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="include\MediaInfo\MediaInfoDLL.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Optplayer.h">
+    <ClInclude Include="include\Optplayer.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Dfanalysis.h">
+    <ClInclude Include="include\Dfanalysis.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="VideoEye.h">
+    <ClInclude Include="include\VideoEye.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="VideoEyeDlg.h">
+    <ClInclude Include="include\VideoEyeDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ve_play.h">
+    <ClInclude Include="include\ve_play.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Dfanalysispic.h">
+    <ClInclude Include="include\Dfanalysispic.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="Sysinfo.h">
+    <ClInclude Include="include\Sysinfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
+    <ClCompile Include="src\stdafx.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="cmdutils.cpp">
+    <ClCompile Include="src\cmdutils.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Welcome.cpp">
+    <ClCompile Include="src\Welcome.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="InputList.cpp">
+    <ClCompile Include="src\InputList.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Videodecode.cpp">
+    <ClCompile Include="src\Videodecode.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Audiodecode.cpp">
+    <ClCompile Include="src\Audiodecode.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Dataoutput.cpp">
+    <ClCompile Include="src\Dataoutput.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Assistantmediainfo.cpp">
+    <ClCompile Include="src\Assistantmediainfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Rawanalysis.cpp">
+    <ClCompile Include="src\Rawanalysis.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Optplayer.cpp">
+    <ClCompile Include="src\Optplayer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Dfanalysis.cpp">
+    <ClCompile Include="src\Dfanalysis.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="VideoEye.cpp">
+    <ClCompile Include="src\VideoEye.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="VideoEyeDlg.cpp">
+    <ClCompile Include="src\VideoEyeDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ve_play.cpp">
+    <ClCompile Include="src\ve_play.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Dfanalysispic.cpp">
+    <ClCompile Include="src\Dfanalysispic.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Sysinfo.cpp">
+    <ClCompile Include="src\Sysinfo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

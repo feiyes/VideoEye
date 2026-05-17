@@ -2,7 +2,9 @@
                 ChangeLog file for VideoEye
 
 
-Changes in 0.3:
+Changes in 0.4:
+- fix compile errors
+- compile with VS 2022 and fix compile errors
 - Updated .gitignore with MFC project specific rules
 - Created libs/ directory to store DLL files (prevents deletion during clean)
 - Configured post-build events to automatically copy DLLs to output directory
